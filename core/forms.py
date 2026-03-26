@@ -92,55 +92,6 @@ class CustomerForm(forms.ModelForm):
         self.fields["is_active"].label = "Activo"
 
 
-class SaleEntryForm(forms.Form):
-    business_date = forms.DateField(widget=forms.DateInput(attrs={"type": "date"}))
-    notes = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 2}))
-    customer = forms.ModelChoiceField(queryset=Customer._default_manager.filter(is_active=True), required=False)
-    is_new_customer = forms.BooleanField(required=False)
-    customer_first_name = forms.CharField(required=False, max_length=120)
-    customer_last_name = forms.CharField(required=False, max_length=120)
-    customer_phone = forms.CharField(required=False, max_length=40)
-    pizza = forms.ModelChoiceField(queryset=Pizza._default_manager.filter(is_active=True))
-    quantity = forms.IntegerField(min_value=1)
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        _apply_styles(self)
-        self.fields["business_date"].label = "Fecha operativa"
-        self.fields["customer"].label = "Cliente"
-        self.fields["is_new_customer"].label = "No existe cliente, cargar uno nuevo"
-        self.fields["customer_first_name"].label = "Nombre del cliente"
-        self.fields["customer_last_name"].label = "Apellido del cliente"
-        self.fields["customer_phone"].label = "Teléfono del cliente"
-        self.fields["notes"].label = "Notas"
-        self.fields["pizza"].label = "Pizza"
-        self.fields["quantity"].label = "Cantidad"
-        self.fields["customer"].queryset = Customer._default_manager.filter(is_active=True).order_by(
-            "first_name", "last_name"
-        )
-
-    def clean(self):
-        cleaned_data = super().clean()
-        is_new_customer = cleaned_data.get("is_new_customer")
-        customer = cleaned_data.get("customer")
-
-        if is_new_customer:
-            first_name = (cleaned_data.get("customer_first_name") or "").strip()
-            last_name = (cleaned_data.get("customer_last_name") or "").strip()
-            phone = (cleaned_data.get("customer_phone") or "").strip()
-            if not first_name:
-                self.add_error("customer_first_name", "Este campo es obligatorio.")
-            if not last_name:
-                self.add_error("customer_last_name", "Este campo es obligatorio.")
-            if not phone:
-                self.add_error("customer_phone", "Este campo es obligatorio.")
-            cleaned_data["customer"] = None
-        elif not customer:
-            self.add_error("customer", "Seleccioná un cliente.")
-
-        return cleaned_data
-
-
 class OrderForm(forms.ModelForm):
     is_new_customer = forms.BooleanField(required=False)
     customer_first_name = forms.CharField(required=False, max_length=120)

@@ -55,26 +55,6 @@ def _consume_stock(pizza, quantity, movement_dt, reference):
     return _to_money(total_unit_cost)
 
 
-def _restore_stock_for_item(sale_item, movement_dt, reference):
-    recipe_items = RecipeItem.objects.select_related("ingredient").filter(pizza=sale_item.pizza)
-    for recipe_item in recipe_items:
-        ingredient = recipe_item.ingredient
-        restored = recipe_item.quantity * Decimal(sale_item.quantity)
-        ingredient.current_stock = ingredient.current_stock + restored
-        ingredient.save(update_fields=["current_stock", "updated_at"])
-
-        movement = IngredientMovement(
-            ingredient=ingredient,
-            movement_type=IngredientMovement.MovementType.MANUAL_ADJUSTMENT,
-            direction=IngredientMovement.Direction.IN,
-            quantity=restored,
-            created_at=movement_dt,
-            reference=reference,
-        )
-        movement.full_clean()
-        movement.save()
-
-
 def _resolve_customer(customer_id=None, customer_data=None):
     if customer_data:
         first_name = (customer_data.get("first_name") or "").strip()
@@ -143,72 +123,6 @@ def create_sale(business_date, notes, items, reference_prefix="SALE", customer_i
         sale.save(update_fields=["total_revenue", "total_cost", "total_profit"])
 
         return sale
-
-
-def update_sale(sale, business_date, notes, items, customer_id=None, customer_data=None):
-    if not items:
-        raise ValidationError("Se requiere al menos un ítem de venta.")
-
-    with transaction.atomic():
-        customer = _resolve_customer(customer_id=customer_id, customer_data=customer_data)
-        movement_dt = _movement_datetime(business_date)
-        previous_items = list(sale.items.select_related("pizza").all())
-        for previous_item in previous_items:
-            _restore_stock_for_item(previous_item, movement_dt, f"UPDATE_REVERT:{sale.id}")
-        sale.items.all().delete()
-
-        total_revenue = Decimal("0.00")
-        total_cost = Decimal("0.00")
-        total_profit = Decimal("0.00")
-        for item in items:
-            pizza = Pizza.objects.filter(id=item.get("pizza_id")).first()
-            quantity = item.get("quantity") or 0
-
-            if not pizza:
-                raise ValidationError("No se encontró la pizza.")
-            if not pizza.is_active:
-                raise ValidationError("La pizza está inactiva y no puede venderse.")
-            if quantity <= 0:
-                raise ValidationError("La cantidad debe ser mayor que cero.")
-
-            applied_unit_price = _to_money(pizza.sale_price)
-            calculated_unit_cost = _consume_stock(
-                pizza=pizza,
-                quantity=quantity,
-                movement_dt=movement_dt,
-                reference=f"SALE:{sale.id}",
-            )
-            calculated_unit_profit = _to_money(applied_unit_price - calculated_unit_cost)
-
-            SaleItem.objects.create(
-                sale=sale,
-                pizza=pizza,
-                quantity=quantity,
-                applied_unit_price=applied_unit_price,
-                calculated_unit_cost=calculated_unit_cost,
-                calculated_unit_profit=calculated_unit_profit,
-            )
-
-            total_revenue += applied_unit_price * Decimal(quantity)
-            total_cost += calculated_unit_cost * Decimal(quantity)
-            total_profit += calculated_unit_profit * Decimal(quantity)
-
-        sale.business_date = business_date
-        sale.customer = customer
-        sale.notes = notes
-        sale.total_revenue = _to_money(total_revenue)
-        sale.total_cost = _to_money(total_cost)
-        sale.total_profit = _to_money(total_profit)
-        sale.save(update_fields=["business_date", "customer", "notes", "total_revenue", "total_cost", "total_profit"])
-        return sale
-
-
-def delete_sale(sale):
-    with transaction.atomic():
-        movement_dt = _movement_datetime(sale.business_date)
-        for sale_item in sale.items.select_related("pizza").all():
-            _restore_stock_for_item(sale_item, movement_dt, f"DELETE_REVERT:{sale.id}")
-        sale.delete()
 
 
 def close_sales_for_business_date(business_date):

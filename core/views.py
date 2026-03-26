@@ -1,5 +1,3 @@
-from decimal import Decimal
-
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -18,7 +16,6 @@ from core.forms import (
     OrderItemForm,
     PizzaForm,
     RecipeItemForm,
-    SaleEntryForm,
 )
 from core.models import Customer, Ingredient, IngredientMovement, Order, OrderItem, Pizza, RecipeItem, Sale
 from core.services.metrics import (
@@ -29,26 +26,7 @@ from core.services.metrics import (
     get_top_pizzas_by_revenue,
     get_unit_margin_by_pizza,
 )
-from core.services.sales import close_sales_for_business_date, create_sale, delete_sale, update_sale
-
-
-def _build_estimate(pizza, quantity):
-    recipe_items = RecipeItem.objects.select_related("ingredient").filter(pizza=pizza)
-    if not recipe_items.exists():
-        raise ValidationError("La pizza no tiene receta.")
-    unit_cost = Decimal("0.00")
-    for recipe_item in recipe_items:
-        unit_cost += recipe_item.quantity * recipe_item.ingredient.unit_price
-    unit_cost = unit_cost.quantize(Decimal("0.01"))
-    unit_profit = (pizza.sale_price - unit_cost).quantize(Decimal("0.01"))
-    subtotal = (pizza.sale_price * Decimal(quantity)).quantize(Decimal("0.01"))
-    total_profit = (unit_profit * Decimal(quantity)).quantize(Decimal("0.01"))
-    return {
-        "estimated_subtotal": subtotal,
-        "estimated_unit_cost": unit_cost,
-        "estimated_unit_profit": unit_profit,
-        "estimated_profit": total_profit,
-    }
+from core.services.sales import close_sales_for_business_date
 
 
 class DashboardView(View):
@@ -100,117 +78,6 @@ class SaleCloseDayView(View):
         except ValidationError as exc:
             messages.error(request, exc.message)
         return redirect(f"{reverse('core:sale_list')}?business_date={business_date}")
-
-
-class SaleCreateView(View):
-    template_name = "core/sale_form.html"
-
-    def get(self, request):
-        form = SaleEntryForm(initial={"business_date": timezone.localdate()})
-        return render(request, self.template_name, {"form": form})
-
-    def post(self, request):
-        form = SaleEntryForm(request.POST)
-        if not form.is_valid():
-            return render(request, self.template_name, {"form": form})
-
-        pizza = form.cleaned_data["pizza"]
-        quantity = form.cleaned_data["quantity"]
-        action = request.POST.get("action")
-        if action == "estimate":
-            try:
-                estimate = _build_estimate(pizza, quantity)
-            except ValidationError as exc:
-                form.add_error(None, exc.message)
-                estimate = None
-            return render(
-                request,
-                self.template_name,
-                {"form": form, "estimate": estimate},
-            )
-
-        try:
-            customer_data = None
-            customer_id = None
-            if form.cleaned_data.get("is_new_customer"):
-                customer_data = {
-                    "first_name": form.cleaned_data.get("customer_first_name"),
-                    "last_name": form.cleaned_data.get("customer_last_name"),
-                    "phone": form.cleaned_data.get("customer_phone"),
-                }
-            else:
-                customer_id = form.cleaned_data["customer"].id
-            create_sale(
-                business_date=form.cleaned_data["business_date"],
-                notes=form.cleaned_data["notes"],
-                items=[{"pizza_id": pizza.id, "quantity": quantity}],
-                reference_prefix="SALE",
-                customer_id=customer_id,
-                customer_data=customer_data,
-            )
-            messages.success(request, "Venta registrada.")
-        except ValidationError as exc:
-            form.add_error(None, exc.message)
-            return render(request, self.template_name, {"form": form})
-        return redirect("core:sale_list")
-
-
-class SaleUpdateView(View):
-    template_name = "core/sale_form.html"
-
-    def get(self, request, pk):
-        sale = get_object_or_404(Sale, pk=pk)
-        sale_item = sale.items.select_related("pizza").first()
-        initial = {"business_date": sale.business_date, "notes": sale.notes, "customer": sale.customer}
-        if sale_item:
-            initial["pizza"] = sale_item.pizza
-            initial["quantity"] = sale_item.quantity
-        form = SaleEntryForm(initial=initial)
-        return render(request, self.template_name, {"form": form, "sale": sale})
-
-    def post(self, request, pk):
-        sale = get_object_or_404(Sale, pk=pk)
-        form = SaleEntryForm(request.POST)
-        if not form.is_valid():
-            return render(request, self.template_name, {"form": form, "sale": sale})
-
-        try:
-            customer_data = None
-            customer_id = None
-            if form.cleaned_data.get("is_new_customer"):
-                customer_data = {
-                    "first_name": form.cleaned_data.get("customer_first_name"),
-                    "last_name": form.cleaned_data.get("customer_last_name"),
-                    "phone": form.cleaned_data.get("customer_phone"),
-                }
-            else:
-                customer_id = form.cleaned_data["customer"].id
-            update_sale(
-                sale=sale,
-                business_date=form.cleaned_data["business_date"],
-                notes=form.cleaned_data["notes"],
-                items=[
-                    {
-                        "pizza_id": form.cleaned_data["pizza"].id,
-                        "quantity": form.cleaned_data["quantity"],
-                    }
-                ],
-                customer_id=customer_id,
-                customer_data=customer_data,
-            )
-            messages.success(request, "Venta actualizada.")
-        except ValidationError as exc:
-            form.add_error(None, exc.message)
-            return render(request, self.template_name, {"form": form, "sale": sale})
-        return redirect("core:sale_list")
-
-
-class SaleDeleteView(View):
-    def post(self, request, pk):
-        sale = get_object_or_404(Sale, pk=pk)
-        delete_sale(sale)
-        messages.success(request, "Venta eliminada.")
-        return redirect("core:sale_list")
 
 
 class CustomerListView(ListView):
