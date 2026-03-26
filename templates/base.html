@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Pizzería Backoffice{% endblock %}</title>
+  <link href="https://preview.keenthemes.com/metronic8/demo1/assets/plugins/global/plugins.bundle.css" rel="stylesheet" type="text/css">
+  <link href="https://preview.keenthemes.com/metronic8/demo1/assets/css/style.bundle.css" rel="stylesheet" type="text/css">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    .bo-content-card {
+      border: 1px solid #edf2f7;
+      box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
+      border-radius: 0.75rem;
+    }
+    .bo-table thead th {
+      background: #f8fafc;
+      color: #0f172a;
+      font-weight: 700;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .bo-table tbody td {
+      color: #334155;
+      font-weight: 500;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .bo-table tbody tr:hover td {
+      background: #f8fbff;
+    }
+    .bo-table {
+      margin-bottom: 0;
+    }
+    .bo-content-card .table-responsive {
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+    .bo-table thead th,
+    .bo-table tbody td {
+      padding-left: 0.9rem !important;
+      padding-right: 0.9rem !important;
+    }
+    .bo-table thead th:first-child,
+    .bo-table tbody td:first-child {
+      padding-left: 1.25rem !important;
+    }
+    .bo-table thead th:last-child,
+    .bo-table tbody td:last-child {
+      padding-right: 1.25rem !important;
+      width: 150px;
+    }
+    .bo-kpi-title {
+      color: #475569;
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+    }
+    .bo-kpi-value {
+      color: #1e293b;
+      font-weight: 800;
+    }
+    .bo-form label,
+    .bo-form .form-label,
+    .bo-form p,
+    .bo-form .text-secondary,
+    .bo-form .form-check-label {
+      color: #1f2937 !important;
+    }
+    .bo-form input,
+    .bo-form select,
+    .bo-form textarea {
+      color: #111827 !important;
+      background-color: #fff !important;
+    }
+    .menu-link.active {
+      background: rgba(59, 130, 246, 0.2);
+      border-radius: 0.6rem;
+    }
+    .bo-back-btn {
+      width: 32px !important;
+      height: 32px !important;
+      min-width: 32px;
+      border-radius: 999px !important;
+      padding: 0 !important;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .bo-back-btn i {
+      font-size: 0.95rem !important;
+    }
+    .bo-empty-row td {
+      text-align: center !important;
+      color: #475569 !important;
+      font-weight: 600 !important;
+      background: #f8fafc !important;
+      padding-top: 1.1rem !important;
+      padding-bottom: 1.1rem !important;
+    }
+    .bo-required-dot {
+      color: #dc3545;
+      font-weight: 700;
+      margin-left: 0.2rem;
+    }
+  </style>
+</head>
+<body id="kt_body" class="header-fixed header-tablet-and-mobile-fixed aside-enabled">
+  <div class="d-flex flex-column flex-root">
+    <div class="page d-flex flex-row flex-column-fluid">
+      <div id="kt_aside" class="aside aside-dark aside-hoverable">
+        <div class="aside-logo flex-column-auto px-6 h-75px d-flex align-items-center">
+          <span class="fs-3 fw-bold text-white">Pizzería BO</span>
+        </div>
+        <div class="aside-menu flex-column-fluid">
+          <div class="hover-scroll-overlay-y my-5 my-lg-5 px-3" id="kt_aside_menu_wrapper">
+            <div class="menu menu-column menu-title-gray-800 menu-state-title-primary menu-state-icon-primary menu-state-bullet-primary" id="kt_aside_menu">
+              <div class="menu-content pb-2">
+                <span class="menu-section text-muted text-uppercase fs-8 ls-1">General</span>
+              </div>
+              <div class="menu-item">
+                <a class="menu-link {% if request.path == '/' %}active{% endif %}" href="/">
+                  <span class="menu-icon"><i class="bi bi-grid fs-3"></i></span>
+                  <span class="menu-title">Panel</span>
+                </a>
+              </div>
+              <div class="menu-content pt-4 pb-2">
+                <span class="menu-section text-muted text-uppercase fs-8 ls-1">Operaciones</span>
+              </div>
+              <div class="menu-item">
+                <a class="menu-link {% if '/sales/' in request.path %}active{% endif %}" href="/sales/">
+                  <span class="menu-icon"><i class="bi bi-lightning-charge fs-3"></i></span>
+                  <span class="menu-title">Ventas</span>
+                </a>
+              </div>
+              <div class="menu-content pt-4 pb-2">
+                <span class="menu-section text-muted text-uppercase fs-8 ls-1">ABM's</span>
+              </div>
+              <div class="menu-item">
+                <a class="menu-link {% if '/ingredients/' in request.path %}active{% endif %}" href="/ingredients/">
+                  <span class="menu-icon"><i class="bi bi-box-seam fs-3"></i></span>
+                  <span class="menu-title">Insumos</span>
+                </a>
+              </div>
+              <div class="menu-item">
+                <a class="menu-link {% if '/pizzas/' in request.path %}active{% endif %}" href="/pizzas/">
+                  <span class="menu-icon"><i class="bi bi-circle-square fs-3"></i></span>
+                  <span class="menu-title">Pizzas</span>
+                </a>
+              </div>
+              <div class="menu-item">
+                <a class="menu-link {% if '/recipes/' in request.path %}active{% endif %}" href="/recipes/">
+                  <span class="menu-icon"><i class="bi bi-journal-text fs-3"></i></span>
+                  <span class="menu-title">Recetas</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="wrapper d-flex flex-column flex-row-fluid" id="kt_wrapper">
+        <div id="kt_header" class="header align-items-stretch">
+          <div class="container-fluid d-flex align-items-stretch justify-content-between">
+            <div class="d-flex align-items-center d-lg-none ms-n3 me-1">
+              <button class="btn btn-icon btn-active-color-primary w-35px h-35px" data-bs-toggle="collapse" data-bs-target="#kt_aside">
+                <i class="bi bi-list fs-2"></i>
+              </button>
+            </div>
+            <div class="d-flex align-items-center">
+              <span class="fs-6 fw-semibold text-gray-700">Backoffice operativo</span>
+            </div>
+          </div>
+        </div>
+        <div class="content d-flex flex-column flex-column-fluid" id="kt_content">
+          <div class="toolbar py-5 py-lg-10">
+            <div class="container-xxl d-flex flex-stack flex-wrap">
+              <div class="d-flex align-items-center gap-3">
+                {% block page_back %}{% endblock %}
+                <h1 class="text-dark fw-bold my-1 fs-3">{% block page_title %}Panel{% endblock %}</h1>
+              </div>
+            </div>
+          </div>
+          <div class="post d-flex flex-column-fluid">
+            <div class="container-xxl">
+              {% if messages %}
+                {% for message in messages %}
+                  <div class="alert alert-primary d-flex align-items-center p-5 mb-8">
+                    <i class="bi bi-info-circle-fill fs-3 text-primary me-3"></i>
+                    <div class="d-flex flex-column">
+                      <span>{{ message }}</span>
+                    </div>
+                  </div>
+                {% endfor %}
+              {% endif %}
+              {% block content %}{% endblock %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="https://preview.keenthemes.com/metronic8/demo1/assets/plugins/global/plugins.bundle.js"></script>
+  <script src="https://preview.keenthemes.com/metronic8/demo1/assets/js/scripts.bundle.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const requiredSelector = "input[required], select[required], textarea[required]";
+      document.querySelectorAll("form.bo-form").forEach(function (form) {
+        form.querySelectorAll(requiredSelector).forEach(function (field) {
+          if (!field.id) return;
+          const label = form.querySelector('label[for="' + field.id + '"]');
+          if (!label || label.querySelector(".bo-required-dot")) return;
+
+          const marker = document.createElement("span");
+          marker.className = "bo-required-dot";
+          marker.setAttribute("aria-hidden", "true");
+          marker.textContent = "•";
+          label.appendChild(marker);
+        });
+      });
+    });
+  </script>
+</body>
+</html>

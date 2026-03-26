@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}{% if ingredient %}Editar insumo{% else %}Nuevo insumo{% endif %} | Pizzería BO{% endblock %}
+{% block page_back %}
+<a class="btn btn-icon btn-light-primary bo-back-btn" href="/ingredients/" title="Volver">
+  <i class="bi bi-arrow-left"></i>
+</a>
+{% endblock %}
+{% block page_title %}{% if ingredient %}Editar insumo{% else %}Nuevo insumo{% endif %}{% endblock %}
+{% block content %}
+<div class="card bo-content-card">
+  <div class="card-body">
+    <form method="post" class="bo-form">
+      {% csrf_token %}
+      {% if ingredient %}
+        <div class="alert alert-info mb-4">
+          El stock actual se gestiona solo desde <strong>Ajustar stock</strong>.
+        </div>
+      {% endif %}
+      {{ form.as_p }}
+      <button class="btn btn-primary" type="submit">Guardar</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

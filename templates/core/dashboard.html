@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}Panel | Pizzería BO{% endblock %}
+{% block page_title %}Panel{% endblock %}
+{% block content %}
+<div class="card mb-3 bo-content-card">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end bo-form">
+      <div class="col-md-4">
+        <label class="form-label text-dark">Fecha desde</label>
+        <input class="form-control" type="date" name="start_date" value="{{ start_date }}">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label text-dark">Fecha hasta</label>
+        <input class="form-control" type="date" name="end_date" value="{{ end_date }}">
+      </div>
+      <div class="col-md-4">
+        <button class="btn btn-primary" type="submit">Filtrar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="row g-5">
+  <div class="col-md-4">
+    <div class="card bo-content-card">
+      <div class="card-body">
+        <div class="bo-kpi-title">Ingresos en período</div>
+        <div class="h2 mb-0 bo-kpi-value">{{ summary.total_revenue }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card bo-content-card">
+      <div class="card-body">
+        <div class="bo-kpi-title">Costos en período</div>
+        <div class="h2 mb-0 bo-kpi-value">{{ summary.total_cost }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card bo-content-card">
+      <div class="card-body">
+        <div class="bo-kpi-title">Ganancia en período</div>
+        <div class="h2 mb-0 bo-kpi-value">{{ summary.total_profit }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-5 mt-1">
+  <div class="col-lg-6">
+    <div class="card bo-content-card">
+      <div class="card-header"><h3 class="card-title">Resumen de hoy</h3></div>
+      <div class="card-body">
+        <p class="mb-2"><strong>Ingresos:</strong> {{ summary_today.total_revenue }}</p>
+        <p class="mb-2"><strong>Costos:</strong> {{ summary_today.total_cost }}</p>
+        <p class="mb-0"><strong>Ganancia:</strong> {{ summary_today.total_profit }}</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card bo-content-card">
+      <div class="card-header"><h3 class="card-title">Top por cantidad</h3></div>
+      <div class="card-body">
+        <ul class="list-group list-group-flush">
+          {% for row in top_by_quantity %}
+            <li class="list-group-item d-flex justify-content-between">
+              <span>{{ row.pizza__name }}</span>
+              <span class="badge badge-light-primary">{{ row.total_quantity }}</span>
+            </li>
+          {% empty %}
+            <li class="list-group-item">Aún no hay datos.</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card bo-content-card">
+      <div class="card-header"><h3 class="card-title">Top por facturación</h3></div>
+      <div class="card-body">
+        <ul class="list-group list-group-flush">
+          {% for row in top_by_revenue %}
+            <li class="list-group-item d-flex justify-content-between">
+              <span>{{ row.pizza__name }}</span>
+              <span class="badge badge-light-primary">{{ row.total_revenue }}</span>
+            </li>
+          {% empty %}
+            <li class="list-group-item">Aún no hay datos.</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card bo-content-card">
+      <div class="card-header"><h3 class="card-title">Alertas de stock</h3></div>
+      <div class="card-body">
+        <p class="mb-2"><strong>Stock bajo:</strong> {{ stock_alerts.low_stock|length }}</p>
+        <p class="mb-0"><strong>Stock negativo:</strong> {{ stock_alerts.negative_stock|length }}</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card bo-content-card">
+      <div class="card-header"><h3 class="card-title">Margen unitario por pizza</h3></div>
+      <div class="card-body">
+        <ul class="list-group list-group-flush">
+          {% for row in unit_margin %}
+            <li class="list-group-item d-flex justify-content-between">
+              <span>{{ row.pizza__name }}</span>
+              <span class="badge badge-light-primary">{{ row.margin_percentage|floatformat:2 }}%</span>
+            </li>
+          {% empty %}
+            <li class="list-group-item">Aún no hay datos.</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card bo-content-card">
+      <div class="card-header"><h3 class="card-title">Consumo de insumos</h3></div>
+      <div class="card-body">
+        <ul class="list-group list-group-flush">
+          {% for row in consumption %}
+            <li class="list-group-item d-flex justify-content-between">
+              <span>{{ row.ingredient__name }}</span>
+              <span class="badge badge-light-primary">{{ row.total_consumed }}</span>
+            </li>
+          {% empty %}
+            <li class="list-group-item">Aún no hay datos.</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card bo-content-card">
+      <div class="card-header"><h3 class="card-title">Ventas recientes</h3></div>
+      <div class="card-body">
+        <ul class="list-group list-group-flush">
+          {% for sale in recent_sales %}
+            <li class="list-group-item d-flex justify-content-between">
+              <span>#{{ sale.id }} - {{ sale.business_date }}</span>
+              <span>{{ sale.total_revenue }}</span>
+            </li>
+          {% empty %}
+            <li class="list-group-item">No hay ventas registradas.</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

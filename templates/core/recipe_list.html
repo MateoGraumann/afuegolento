@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Recetas | Pizzería BO{% endblock %}
+{% block page_title %}Recetas{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-end mb-3">
+  <a class="btn btn-primary" href="/recipes/new/">
+    <i class="bi bi-plus-circle"></i>&nbsp;Nueva receta
+  </a>
+</div>
+
+<div class="card bo-content-card">
+  <div class="table-responsive">
+    <table class="table table-row-dashed align-middle gs-0 gy-3 bo-table">
+      <thead>
+        <tr>
+          <th>Pizza</th>
+          <th>Insumo</th>
+          <th>Cantidad por pizza</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for recipe in recipes %}
+        <tr>
+          <td>{{ recipe.pizza.name }}</td>
+          <td>{{ recipe.ingredient.name }}</td>
+          <td>{{ recipe.quantity|floatformat:"-3" }} {{ recipe.ingredient.unit }}</td>
+          <td>
+            <div class="dropdown">
+              <button class="btn btn-sm btn-light-primary dropdown-toggle" data-bs-toggle="dropdown" type="button">
+                Acciones
+              </button>
+              <div class="dropdown-menu">
+                <a class="dropdown-item" href="/recipes/{{ recipe.id }}/edit/">Editar</a>
+                <form method="post" action="/recipes/{{ recipe.id }}/delete/" onsubmit="return confirm('¿Eliminar receta?');">
+                  {% csrf_token %}
+                  <button class="dropdown-item text-danger" type="submit">Eliminar</button>
+                </form>
+              </div>
+            </div>
+          </td>
+        </tr>
+      {% empty %}
+        <tr class="bo-empty-row"><td colspan="4">Aún no hay recetas cargadas.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

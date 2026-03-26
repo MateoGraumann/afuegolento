@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Insumos | Pizzería BO{% endblock %}
+{% block page_title %}Insumos{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-end mb-3">
+  <a class="btn btn-primary" href="/ingredients/new/">
+    <i class="bi bi-plus-circle"></i>&nbsp;Nuevo insumo
+  </a>
+</div>
+
+<div class="card bo-content-card">
+  <div class="table-responsive">
+    <table class="table table-row-dashed align-middle gs-0 gy-3 bo-table">
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>Unidad</th>
+          <th>Precio unitario</th>
+          <th>Stock</th>
+          <th>Stock mínimo</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for ingredient in ingredients %}
+        <tr>
+          <td>{{ ingredient.name }}</td>
+          <td>{{ ingredient.unit }}</td>
+          <td>{{ ingredient.unit_price }}</td>
+          <td>{{ ingredient.current_stock }}</td>
+          <td>{{ ingredient.min_stock }}</td>
+          <td>
+            <div class="dropdown">
+              <button class="btn btn-sm btn-light-primary dropdown-toggle" data-bs-toggle="dropdown" type="button">
+                Acciones
+              </button>
+              <div class="dropdown-menu">
+                <a class="dropdown-item" href="/ingredients/{{ ingredient.id }}/edit/">Editar</a>
+                <a class="dropdown-item" href="/ingredients/{{ ingredient.id }}/adjust-stock/">Ajustar</a>
+                <form method="post" action="/ingredients/{{ ingredient.id }}/delete/" onsubmit="return confirm('¿Eliminar insumo?');">
+                  {% csrf_token %}
+                  <button class="dropdown-item text-danger" type="submit">Eliminar</button>
+                </form>
+              </div>
+            </div>
+          </td>
+        </tr>
+      {% empty %}
+        <tr class="bo-empty-row"><td colspan="6">Aún no hay insumos cargados.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

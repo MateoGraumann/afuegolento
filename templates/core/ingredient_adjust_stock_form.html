@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Ajustar stock | Pizzería BO{% endblock %}
+{% block page_back %}
+<a class="btn btn-icon btn-light-primary bo-back-btn" href="/ingredients/" title="Volver">
+  <i class="bi bi-arrow-left"></i>
+</a>
+{% endblock %}
+{% block page_title %}Ajustar stock{% endblock %}
+{% block content %}
+<div class="card bo-content-card">
+  <div class="card-header">
+    <h3 class="card-title">Ajustar stock - {{ ingredient.name }}</h3>
+  </div>
+  <div class="card-body">
+    <form method="post" class="bo-form">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button class="btn btn-primary" type="submit">Aplicar</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

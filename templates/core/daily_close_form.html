@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Cierre diario | Pizzería BO{% endblock %}
+{% block page_title %}Cierre diario{% endblock %}
+{% block content %}
+<div class="card bo-content-card">
+  <div class="card-header">
+    <h3 class="card-title">Carga de cierre diario</h3>
+  </div>
+  <div class="card-body">
+    <form method="post" class="bo-form">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button class="btn btn-primary" type="submit">Guardar</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

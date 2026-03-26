@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Ventas | Pizzería BO{% endblock %}
+{% block page_title %}Ventas{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-end mb-3">
+  <a class="btn btn-primary" href="/sales/new/">
+    <i class="bi bi-plus-circle"></i>&nbsp;Nueva venta
+  </a>
+</div>
+
+<div class="card bo-content-card">
+  <div class="table-responsive">
+    <table class="table table-row-dashed align-middle gs-0 gy-3 bo-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Fecha operativa</th>
+          <th>Notas</th>
+          <th>Ingresos</th>
+          <th>Costos</th>
+          <th>Ganancia</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for sale in sales %}
+        <tr>
+          <td>#{{ sale.id }}</td>
+          <td>{{ sale.business_date }}</td>
+          <td>{{ sale.notes|default:"-" }}</td>
+          <td>{{ sale.total_revenue }}</td>
+          <td>{{ sale.total_cost }}</td>
+          <td>{{ sale.total_profit }}</td>
+          <td>
+            <div class="dropdown">
+              <button class="btn btn-sm btn-light-primary dropdown-toggle" data-bs-toggle="dropdown" type="button">
+                Acciones
+              </button>
+              <div class="dropdown-menu">
+                <a class="dropdown-item" href="/sales/{{ sale.id }}/edit/">Editar</a>
+                <form method="post" action="/sales/{{ sale.id }}/delete/" onsubmit="return confirm('¿Eliminar venta?');">
+                  {% csrf_token %}
+                  <button class="dropdown-item text-danger" type="submit">Eliminar</button>
+                </form>
+              </div>
+            </div>
+          </td>
+        </tr>
+      {% empty %}
+        <tr class="bo-empty-row"><td colspan="7">Aún no hay ventas cargadas.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

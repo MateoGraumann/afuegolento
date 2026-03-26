@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}{% if sale %}Editar venta{% else %}Nueva venta{% endif %} | Pizzería BO{% endblock %}
+{% block page_back %}
+<a class="btn btn-icon btn-light-primary bo-back-btn" href="/sales/" title="Volver">
+  <i class="bi bi-arrow-left"></i>
+</a>
+{% endblock %}
+{% block page_title %}{% if sale %}Editar venta{% else %}Nueva venta{% endif %}{% endblock %}
+{% block content %}
+<div class="row g-5">
+  <div class="col-lg-7">
+    <div class="card bo-content-card">
+      <div class="card-header"><h3 class="card-title">{% if sale %}Actualizar venta{% else %}Registrar venta{% endif %}</h3></div>
+      <div class="card-body">
+        <form method="post" class="bo-form">
+          {% csrf_token %}
+          {{ form.as_p }}
+          <div class="d-flex gap-2">
+            <button class="btn btn-outline-primary" type="submit" name="action" value="estimate">
+              Calcular
+            </button>
+            <button class="btn btn-primary" type="submit">Guardar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card bo-content-card">
+      <div class="card-header"><h3 class="card-title">Ganancia estimada</h3></div>
+      <div class="card-body">
+        {% if estimate %}
+          <p class="text-dark"><strong>Subtotal:</strong> {{ estimate.estimated_subtotal }}</p>
+          <p class="text-dark"><strong>Costo estimado:</strong> {{ estimate.estimated_unit_cost }}</p>
+          <p class="text-dark"><strong>Ganancia unitaria estimada:</strong> {{ estimate.estimated_unit_profit }}</p>
+          <p class="mb-0 text-dark"><strong>Ganancia estimada:</strong> {{ estimate.estimated_profit }}</p>
+        {% else %}
+          <p class="text-dark mb-0">Usá el botón de cálculo para previsualizar el margen antes de guardar.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

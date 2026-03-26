@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Pizzas | Pizzería BO{% endblock %}
+{% block page_title %}Pizzas{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-end mb-3">
+  <a class="btn btn-primary" href="/pizzas/new/">
+    <i class="bi bi-plus-circle"></i>&nbsp;Nueva pizza
+  </a>
+</div>
+
+<div class="card bo-content-card">
+  <div class="table-responsive">
+    <table class="table table-row-dashed align-middle gs-0 gy-3 bo-table">
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>Precio de venta</th>
+          <th>Activa</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for pizza in pizzas %}
+        <tr>
+          <td>{{ pizza.name }}</td>
+          <td>{{ pizza.sale_price }}</td>
+          <td>
+            {% if pizza.is_active %}
+              <span class="badge badge-light-success">Sí</span>
+            {% else %}
+              <span class="badge badge-light-danger">No</span>
+            {% endif %}
+          </td>
+          <td>
+            <div class="dropdown">
+              <button class="btn btn-sm btn-light-primary dropdown-toggle" data-bs-toggle="dropdown" type="button">
+                Acciones
+              </button>
+              <div class="dropdown-menu">
+                <a class="dropdown-item" href="/pizzas/{{ pizza.id }}/edit/">Editar</a>
+                <form method="post" action="/pizzas/{{ pizza.id }}/delete/" onsubmit="return confirm('¿Eliminar pizza?');">
+                  {% csrf_token %}
+                  <button class="dropdown-item text-danger" type="submit">Eliminar</button>
+                </form>
+              </div>
+            </div>
+          </td>
+        </tr>
+      {% empty %}
+        <tr class="bo-empty-row"><td colspan="4">Aún no hay pizzas cargadas.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}{% if pizza %}Editar pizza{% else %}Nueva pizza{% endif %} | Pizzería BO{% endblock %}
+{% block page_back %}
+<a class="btn btn-icon btn-light-primary bo-back-btn" href="/pizzas/" title="Volver">
+  <i class="bi bi-arrow-left"></i>
+</a>
+{% endblock %}
+{% block page_title %}{% if pizza %}Editar pizza{% else %}Nueva pizza{% endif %}{% endblock %}
+{% block content %}
+<div class="card bo-content-card">
+  <div class="card-body">
+    <form method="post" class="bo-form">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button class="btn btn-primary" type="submit">Guardar</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
