@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import dateparse, timezone
 
-from core.models import IngredientMovement, Pizza, RecipeItem, Sale, SaleItem
+from core.models import Customer, IngredientMovement, Order, Pizza, RecipeItem, Sale, SaleItem
 
 
 def _to_money(value):
@@ -75,12 +75,31 @@ def _restore_stock_for_item(sale_item, movement_dt, reference):
         movement.save()
 
 
-def create_sale(business_date, notes, items, reference_prefix="SALE"):
+def _resolve_customer(customer_id=None, customer_data=None):
+    if customer_data:
+        first_name = (customer_data.get("first_name") or "").strip()
+        last_name = (customer_data.get("last_name") or "").strip()
+        phone = (customer_data.get("phone") or "").strip()
+        if not first_name or not last_name or not phone:
+            raise ValidationError("Los datos del cliente nuevo son obligatorios.")
+        return Customer.objects.create(first_name=first_name, last_name=last_name, phone=phone)
+
+    if customer_id:
+        customer = Customer.objects.filter(id=customer_id, is_active=True).first()
+        if not customer:
+            raise ValidationError("No se encontró el cliente.")
+        return customer
+
+    raise ValidationError("Se requiere un cliente para registrar la venta.")
+
+
+def create_sale(business_date, notes, items, reference_prefix="SALE", customer_id=None, customer_data=None):
     if not items:
         raise ValidationError("Se requiere al menos un ítem de venta.")
 
     with transaction.atomic():
-        sale = Sale.objects.create(business_date=business_date, notes=notes)
+        customer = _resolve_customer(customer_id=customer_id, customer_data=customer_data)
+        sale = Sale.objects.create(business_date=business_date, notes=notes, customer=customer)
         total_revenue = Decimal("0.00")
         total_cost = Decimal("0.00")
         total_profit = Decimal("0.00")
@@ -126,11 +145,12 @@ def create_sale(business_date, notes, items, reference_prefix="SALE"):
         return sale
 
 
-def update_sale(sale, business_date, notes, items):
+def update_sale(sale, business_date, notes, items, customer_id=None, customer_data=None):
     if not items:
         raise ValidationError("Se requiere al menos un ítem de venta.")
 
     with transaction.atomic():
+        customer = _resolve_customer(customer_id=customer_id, customer_data=customer_data)
         movement_dt = _movement_datetime(business_date)
         previous_items = list(sale.items.select_related("pizza").all())
         for previous_item in previous_items:
@@ -174,11 +194,12 @@ def update_sale(sale, business_date, notes, items):
             total_profit += calculated_unit_profit * Decimal(quantity)
 
         sale.business_date = business_date
+        sale.customer = customer
         sale.notes = notes
         sale.total_revenue = _to_money(total_revenue)
         sale.total_cost = _to_money(total_cost)
         sale.total_profit = _to_money(total_profit)
-        sale.save(update_fields=["business_date", "notes", "total_revenue", "total_cost", "total_profit"])
+        sale.save(update_fields=["business_date", "customer", "notes", "total_revenue", "total_cost", "total_profit"])
         return sale
 
 
@@ -188,3 +209,44 @@ def delete_sale(sale):
         for sale_item in sale.items.select_related("pizza").all():
             _restore_stock_for_item(sale_item, movement_dt, f"DELETE_REVERT:{sale.id}")
         sale.delete()
+
+
+def close_sales_for_business_date(business_date):
+    orders = Order.objects.select_related("customer").prefetch_related("items").filter(
+        business_date=business_date,
+        status=Order.Status.DELIVERED,
+        sale__isnull=True,
+    )
+    created_sales = []
+
+    with transaction.atomic():
+        for order in orders:
+            if not order.customer_id:
+                raise ValidationError(f"El pedido #{order.id} no tiene cliente.")
+
+            items_payload = [
+                {"pizza_id": item.pizza_id, "quantity": item.quantity}
+                for item in order.items.select_related("pizza").all()
+            ]
+            if not items_payload:
+                raise ValidationError(f"El pedido #{order.id} no tiene ítems.")
+
+            sale = create_sale(
+                business_date=order.business_date,
+                notes=order.notes,
+                items=items_payload,
+                reference_prefix=f"ORDER:{order.id}",
+                customer_id=order.customer_id,
+            )
+
+            if order.total_envio is not None:
+                total_envio = _to_money(order.total_envio)
+                sale.total_revenue = _to_money(sale.total_revenue + total_envio)
+                sale.total_profit = _to_money(sale.total_profit + total_envio)
+                sale.save(update_fields=["total_revenue", "total_profit"])
+
+            order.sale = sale
+            order.save(update_fields=["sale"])
+            created_sales.append(sale)
+
+    return created_sales

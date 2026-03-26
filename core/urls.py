@@ -1,12 +1,20 @@
 from django.urls import path
 
 from core.views import (
+    CustomerCreateView,
+    CustomerDeleteView,
+    CustomerListView,
+    CustomerUpdateView,
     DashboardView,
     IngredientAdjustStockView,
     IngredientCreateView,
     IngredientDeleteView,
     IngredientListView,
     IngredientUpdateView,
+    OrderCreateView,
+    OrderDeleteView,
+    OrderListView,
+    OrderUpdateView,
     PizzaCreateView,
     PizzaDeleteView,
     PizzaListView,
@@ -15,10 +23,8 @@ from core.views import (
     RecipeItemDeleteView,
     RecipeItemListView,
     RecipeItemUpdateView,
-    SaleCreateView,
-    SaleDeleteView,
+    SaleCloseDayView,
     SaleListView,
-    SaleUpdateView,
 )
 
 app_name = "core"
@@ -26,9 +32,15 @@ app_name = "core"
 urlpatterns = [
     path("", DashboardView.as_view(), name="dashboard"),
     path("sales/", SaleListView.as_view(), name="sale_list"),
-    path("sales/new/", SaleCreateView.as_view(), name="sale_create"),
-    path("sales/<int:pk>/edit/", SaleUpdateView.as_view(), name="sale_update"),
-    path("sales/<int:pk>/delete/", SaleDeleteView.as_view(), name="sale_delete"),
+    path("sales/close-day/", SaleCloseDayView.as_view(), name="sale_close_day"),
+    path("orders/", OrderListView.as_view(), name="order_list"),
+    path("orders/new/", OrderCreateView.as_view(), name="order_create"),
+    path("orders/<int:pk>/edit/", OrderUpdateView.as_view(), name="order_update"),
+    path("orders/<int:pk>/delete/", OrderDeleteView.as_view(), name="order_delete"),
+    path("customers/", CustomerListView.as_view(), name="customer_list"),
+    path("customers/new/", CustomerCreateView.as_view(), name="customer_create"),
+    path("customers/<int:pk>/edit/", CustomerUpdateView.as_view(), name="customer_update"),
+    path("customers/<int:pk>/delete/", CustomerDeleteView.as_view(), name="customer_delete"),
     path("ingredients/", IngredientListView.as_view(), name="ingredient_list"),
     path("ingredients/new/", IngredientCreateView.as_view(), name="ingredient_create"),
     path("ingredients/<int:pk>/edit/", IngredientUpdateView.as_view(), name="ingredient_update"),

@@ -1,6 +1,13 @@
 from django.contrib import admin
 
-from core.models import Ingredient, IngredientMovement, Pizza, RecipeItem, Sale, SaleItem
+from core.models import Customer, Ingredient, IngredientMovement, Order, OrderItem, Pizza, RecipeItem, Sale, SaleItem
+
+
+@admin.register(Customer)
+class CustomerAdmin(admin.ModelAdmin):
+    list_display = ("first_name", "last_name", "phone", "is_active")
+    list_filter = ("is_active",)
+    search_fields = ("first_name", "last_name", "phone")
 
 
 @admin.register(Ingredient)
@@ -28,11 +35,25 @@ class SaleItemInline(admin.TabularInline):
     extra = 0
 
 
+class OrderItemInline(admin.TabularInline):
+    model = OrderItem
+    extra = 0
+
+
 @admin.register(Sale)
 class SaleAdmin(admin.ModelAdmin):
-    list_display = ("id", "business_date", "total_revenue", "total_cost", "total_profit", "created_at")
+    list_display = ("id", "customer", "business_date", "total_revenue", "total_cost", "total_profit", "created_at")
     list_filter = ("business_date",)
+    search_fields = ("customer__first_name", "customer__last_name", "customer__phone")
     inlines = [SaleItemInline]
+
+
+@admin.register(Order)
+class OrderAdmin(admin.ModelAdmin):
+    list_display = ("id", "customer", "business_date", "status", "total_envio", "direccion_envio", "created_at")
+    list_filter = ("status", "business_date")
+    search_fields = ("customer__first_name", "customer__last_name", "customer__phone", "direccion_envio", "notes")
+    inlines = [OrderItemInline]
 
 
 @admin.register(IngredientMovement)

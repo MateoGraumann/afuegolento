@@ -3,13 +3,24 @@ from decimal import Decimal
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.forms import inlineformset_factory
+from django.urls import reverse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views import View
 from django.views.generic import ListView
 
-from core.forms import IngredientAdjustStockForm, IngredientForm, PizzaForm, RecipeItemForm, SaleEntryForm
-from core.models import Ingredient, IngredientMovement, Pizza, RecipeItem, Sale
+from core.forms import (
+    CustomerForm,
+    IngredientAdjustStockForm,
+    IngredientForm,
+    OrderForm,
+    OrderItemForm,
+    PizzaForm,
+    RecipeItemForm,
+    SaleEntryForm,
+)
+from core.models import Customer, Ingredient, IngredientMovement, Order, OrderItem, Pizza, RecipeItem, Sale
 from core.services.metrics import (
     get_ingredient_consumption,
     get_low_and_negative_stock,
@@ -18,7 +29,7 @@ from core.services.metrics import (
     get_top_pizzas_by_revenue,
     get_unit_margin_by_pizza,
 )
-from core.services.sales import create_sale, delete_sale, update_sale
+from core.services.sales import close_sales_for_business_date, create_sale, delete_sale, update_sale
 
 
 def _build_estimate(pizza, quantity):
@@ -57,7 +68,7 @@ class DashboardView(View):
             "unit_margin": get_unit_margin_by_pizza(start_date, end_date),
             "consumption": get_ingredient_consumption(start_date, end_date),
             "stock_alerts": get_low_and_negative_stock(),
-            "recent_sales": Sale.objects.order_by("-business_date", "-created_at")[:5],
+            "recent_sales": Sale.objects.select_related("customer").order_by("-business_date", "-created_at")[:5],
         }
         return render(request, self.template_name, context)
 
@@ -68,7 +79,27 @@ class SaleListView(ListView):
     context_object_name = "sales"
 
     def get_queryset(self):
-        return Sale.objects.order_by("-business_date", "-created_at")
+        selected_date = self.request.GET.get("business_date") or str(timezone.localdate())
+        return Sale.objects.filter(business_date=selected_date).order_by("-created_at")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["business_date"] = self.request.GET.get("business_date") or str(timezone.localdate())
+        return context
+
+
+class SaleCloseDayView(View):
+    def post(self, request):
+        business_date = request.POST.get("business_date") or str(timezone.localdate())
+        try:
+            created_sales = close_sales_for_business_date(business_date)
+            if created_sales:
+                messages.success(request, f"Cierre diario generado. Ventas creadas: {len(created_sales)}.")
+            else:
+                messages.info(request, "No hay pedidos entregados pendientes para esa fecha.")
+        except ValidationError as exc:
+            messages.error(request, exc.message)
+        return redirect(f"{reverse('core:sale_list')}?business_date={business_date}")
 
 
 class SaleCreateView(View):
@@ -99,11 +130,23 @@ class SaleCreateView(View):
             )
 
         try:
+            customer_data = None
+            customer_id = None
+            if form.cleaned_data.get("is_new_customer"):
+                customer_data = {
+                    "first_name": form.cleaned_data.get("customer_first_name"),
+                    "last_name": form.cleaned_data.get("customer_last_name"),
+                    "phone": form.cleaned_data.get("customer_phone"),
+                }
+            else:
+                customer_id = form.cleaned_data["customer"].id
             create_sale(
                 business_date=form.cleaned_data["business_date"],
                 notes=form.cleaned_data["notes"],
                 items=[{"pizza_id": pizza.id, "quantity": quantity}],
                 reference_prefix="SALE",
+                customer_id=customer_id,
+                customer_data=customer_data,
             )
             messages.success(request, "Venta registrada.")
         except ValidationError as exc:
@@ -118,7 +161,7 @@ class SaleUpdateView(View):
     def get(self, request, pk):
         sale = get_object_or_404(Sale, pk=pk)
         sale_item = sale.items.select_related("pizza").first()
-        initial = {"business_date": sale.business_date, "notes": sale.notes}
+        initial = {"business_date": sale.business_date, "notes": sale.notes, "customer": sale.customer}
         if sale_item:
             initial["pizza"] = sale_item.pizza
             initial["quantity"] = sale_item.quantity
@@ -132,6 +175,16 @@ class SaleUpdateView(View):
             return render(request, self.template_name, {"form": form, "sale": sale})
 
         try:
+            customer_data = None
+            customer_id = None
+            if form.cleaned_data.get("is_new_customer"):
+                customer_data = {
+                    "first_name": form.cleaned_data.get("customer_first_name"),
+                    "last_name": form.cleaned_data.get("customer_last_name"),
+                    "phone": form.cleaned_data.get("customer_phone"),
+                }
+            else:
+                customer_id = form.cleaned_data["customer"].id
             update_sale(
                 sale=sale,
                 business_date=form.cleaned_data["business_date"],
@@ -142,6 +195,8 @@ class SaleUpdateView(View):
                         "quantity": form.cleaned_data["quantity"],
                     }
                 ],
+                customer_id=customer_id,
+                customer_data=customer_data,
             )
             messages.success(request, "Venta actualizada.")
         except ValidationError as exc:
@@ -156,6 +211,218 @@ class SaleDeleteView(View):
         delete_sale(sale)
         messages.success(request, "Venta eliminada.")
         return redirect("core:sale_list")
+
+
+class CustomerListView(ListView):
+    model = Customer
+    template_name = "core/customer_list.html"
+    context_object_name = "customers"
+
+    def get_queryset(self):
+        return Customer.objects.order_by("first_name", "last_name")
+
+
+class CustomerCreateView(View):
+    template_name = "core/customer_form.html"
+
+    def get(self, request):
+        return render(request, self.template_name, {"form": CustomerForm()})
+
+    def post(self, request):
+        form = CustomerForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Cliente creado.")
+            return redirect("core:customer_list")
+        return render(request, self.template_name, {"form": form})
+
+
+class CustomerUpdateView(View):
+    template_name = "core/customer_form.html"
+
+    def get(self, request, pk):
+        customer = get_object_or_404(Customer, pk=pk)
+        return render(request, self.template_name, {"form": CustomerForm(instance=customer), "customer": customer})
+
+    def post(self, request, pk):
+        customer = get_object_or_404(Customer, pk=pk)
+        form = CustomerForm(request.POST, instance=customer)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Cliente actualizado.")
+            return redirect("core:customer_list")
+        return render(request, self.template_name, {"form": form, "customer": customer})
+
+
+class CustomerDeleteView(View):
+    def post(self, request, pk):
+        customer = get_object_or_404(Customer, pk=pk)
+        customer.is_active = False
+        customer.save(update_fields=["is_active", "updated_at"])
+        messages.success(request, "Cliente dado de baja.")
+        return redirect("core:customer_list")
+
+
+class OrderListView(ListView):
+    model = Order
+    template_name = "core/order_list.html"
+    context_object_name = "orders"
+
+    def get_queryset(self):
+        return Order.objects.select_related("customer").prefetch_related("items__pizza").order_by(
+            "-business_date", "-created_at"
+        )
+
+
+class OrderCreateView(View):
+    template_name = "core/order_form.html"
+
+    def get(self, request):
+        form = OrderForm(initial={"business_date": timezone.localdate()})
+        item_formset = self._build_formset()
+        context = {
+            "form": form,
+            "item_formset": item_formset,
+            "empty_item_form": item_formset.empty_form,
+        }
+        return render(request, self.template_name, context)
+
+    def post(self, request):
+        form = OrderForm(request.POST)
+        item_formset = self._build_formset(data=request.POST)
+        if not form.is_valid() or not item_formset.is_valid():
+            context = {
+                "form": form,
+                "item_formset": item_formset,
+                "empty_item_form": item_formset.empty_form,
+            }
+            return render(request, self.template_name, context)
+        if not self._has_items(item_formset):
+            form.add_error(None, "Se requiere al menos un ítem de pedido.")
+            context = {
+                "form": form,
+                "item_formset": item_formset,
+                "empty_item_form": item_formset.empty_form,
+            }
+            return render(request, self.template_name, context)
+
+        with transaction.atomic():
+            if form.cleaned_data.get("is_new_customer"):
+                customer = Customer.objects.create(
+                    first_name=(form.cleaned_data.get("customer_first_name") or "").strip(),
+                    last_name=(form.cleaned_data.get("customer_last_name") or "").strip(),
+                    phone=(form.cleaned_data.get("customer_phone") or "").strip(),
+                )
+                form.instance.customer = customer
+            order = form.save()
+            item_formset.instance = order
+            item_formset.save()
+        messages.success(request, "Pedido creado.")
+        return redirect("core:order_list")
+
+    def _build_formset(self, data=None):
+        formset_cls = inlineformset_factory(
+            Order,
+            OrderItem,
+            form=OrderItemForm,
+            fields=["pizza", "quantity"],
+            extra=1,
+            can_delete=True,
+        )
+        return formset_cls(data=data, prefix="items")
+
+    def _has_items(self, item_formset):
+        for item_form in item_formset.forms:
+            cleaned = getattr(item_form, "cleaned_data", None) or {}
+            if cleaned and not cleaned.get("DELETE") and cleaned.get("pizza") and cleaned.get("quantity"):
+                return True
+        return False
+
+
+class OrderUpdateView(View):
+    template_name = "core/order_form.html"
+
+    def get(self, request, pk):
+        order = get_object_or_404(Order.objects.select_related("customer").prefetch_related("items__pizza"), pk=pk)
+        if order.sale_id:
+            messages.warning(request, "El pedido ya fue cerrado y no puede editarse.")
+            return redirect("core:order_list")
+        form = OrderForm(instance=order)
+        item_formset = self._build_formset(instance=order)
+        context = {
+            "form": form,
+            "item_formset": item_formset,
+            "empty_item_form": item_formset.empty_form,
+            "order": order,
+        }
+        return render(request, self.template_name, context)
+
+    def post(self, request, pk):
+        order = get_object_or_404(Order.objects.select_related("customer").prefetch_related("items__pizza"), pk=pk)
+        if order.sale_id:
+            messages.warning(request, "El pedido ya fue cerrado y no puede editarse.")
+            return redirect("core:order_list")
+        form = OrderForm(request.POST, instance=order)
+        item_formset = self._build_formset(data=request.POST, instance=order)
+        if not form.is_valid() or not item_formset.is_valid():
+            context = {
+                "form": form,
+                "item_formset": item_formset,
+                "empty_item_form": item_formset.empty_form,
+                "order": order,
+            }
+            return render(request, self.template_name, context)
+        if not self._has_items(item_formset):
+            form.add_error(None, "Se requiere al menos un ítem de pedido.")
+            context = {
+                "form": form,
+                "item_formset": item_formset,
+                "empty_item_form": item_formset.empty_form,
+                "order": order,
+            }
+            return render(request, self.template_name, context)
+
+        with transaction.atomic():
+            if form.cleaned_data.get("is_new_customer"):
+                customer = Customer.objects.create(
+                    first_name=(form.cleaned_data.get("customer_first_name") or "").strip(),
+                    last_name=(form.cleaned_data.get("customer_last_name") or "").strip(),
+                    phone=(form.cleaned_data.get("customer_phone") or "").strip(),
+                )
+                form.instance.customer = customer
+            form.save()
+            item_formset.save()
+        messages.success(request, "Pedido actualizado.")
+        return redirect("core:order_list")
+
+    def _build_formset(self, data=None, instance=None):
+        formset_cls = inlineformset_factory(
+            Order,
+            OrderItem,
+            form=OrderItemForm,
+            fields=["pizza", "quantity"],
+            extra=0,
+            can_delete=True,
+        )
+        return formset_cls(data=data, instance=instance, prefix="items")
+
+    def _has_items(self, item_formset):
+        for item_form in item_formset.forms:
+            cleaned = getattr(item_form, "cleaned_data", None) or {}
+            if cleaned and not cleaned.get("DELETE") and cleaned.get("pizza") and cleaned.get("quantity"):
+                return True
+        return False
+
+
+class OrderDeleteView(View):
+    def post(self, request, pk):
+        order = get_object_or_404(Order, pk=pk)
+        if order.sale_id:
+            messages.warning(request, "El pedido ya fue cerrado y no puede eliminarse.")
+            return redirect("core:order_list")
+        order.delete()
+        messages.success(request, "Pedido eliminado.")
+        return redirect("core:order_list")
 
 
 class IngredientListView(ListView):

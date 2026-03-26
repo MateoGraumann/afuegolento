@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% block title %}{% if order %}Editar pedido{% else %}Nuevo pedido{% endif %} | Pizzería BO{% endblock %}
+{% block page_back %}
+<a class="btn btn-icon btn-light-primary bo-back-btn" href="/orders/" title="Volver">
+  <i class="bi bi-arrow-left"></i>
+</a>
+{% endblock %}
+{% block page_title %}{% if order %}Editar pedido{% else %}Nuevo pedido{% endif %}{% endblock %}
+{% block content %}
+<div class="card bo-content-card">
+  <div class="card-body">
+    <form method="post" class="bo-form">
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+        <div class="alert alert-danger mb-4">
+          {% for error in form.non_field_errors %}
+            <div>{{ error }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <div class="mb-4">
+        {{ form.business_date.label_tag }}
+        {{ form.business_date }}
+        {% if form.business_date.errors %}
+          <div class="text-danger small mt-1">{{ form.business_date.errors|join:", " }}</div>
+        {% endif %}
+      </div>
+
+      <div id="existing-customer-group" class="mb-4">
+        {{ form.customer.label_tag }}
+        {{ form.customer }}
+        {% if form.customer.errors %}
+          <div class="text-danger small mt-1">{{ form.customer.errors|join:", " }}</div>
+        {% endif %}
+      </div>
+
+      <div class="form-check mb-4">
+        {{ form.is_new_customer }}
+        {{ form.is_new_customer.label_tag }}
+      </div>
+
+      <div id="new-customer-fields" style="display: none;">
+        <div class="mb-4">
+          {{ form.customer_first_name.label_tag }}
+          {{ form.customer_first_name }}
+          {% if form.customer_first_name.errors %}
+            <div class="text-danger small mt-1">{{ form.customer_first_name.errors|join:", " }}</div>
+          {% endif %}
+        </div>
+        <div class="mb-4">
+          {{ form.customer_last_name.label_tag }}
+          {{ form.customer_last_name }}
+          {% if form.customer_last_name.errors %}
+            <div class="text-danger small mt-1">{{ form.customer_last_name.errors|join:", " }}</div>
+          {% endif %}
+        </div>
+        <div class="mb-4">
+          {{ form.customer_phone.label_tag }}
+          {{ form.customer_phone }}
+          {% if form.customer_phone.errors %}
+            <div class="text-danger small mt-1">{{ form.customer_phone.errors|join:", " }}</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="mb-4">
+        {{ form.status.label_tag }}
+        {{ form.status }}
+        {% if form.status.errors %}
+          <div class="text-danger small mt-1">{{ form.status.errors|join:", " }}</div>
+        {% endif %}
+      </div>
+
+      <div class="mb-4">
+        {{ form.total_envio.label_tag }}
+        {{ form.total_envio }}
+        {% if form.total_envio.errors %}
+          <div class="text-danger small mt-1">{{ form.total_envio.errors|join:", " }}</div>
+        {% endif %}
+      </div>
+
+      <div class="mb-4">
+        {{ form.direccion_envio.label_tag }}
+        {{ form.direccion_envio }}
+        {% if form.direccion_envio.errors %}
+          <div class="text-danger small mt-1">{{ form.direccion_envio.errors|join:", " }}</div>
+        {% endif %}
+      </div>
+
+      <div class="mb-4">
+        {{ form.notes.label_tag }}
+        {{ form.notes }}
+        {% if form.notes.errors %}
+          <div class="text-danger small mt-1">{{ form.notes.errors|join:", " }}</div>
+        {% endif %}
+      </div>
+
+      <hr class="my-5">
+      <h4 class="mb-4">Ítems del pedido</h4>
+
+      {{ item_formset.management_form }}
+      {% if item_formset.non_form_errors %}
+        <div class="alert alert-danger mb-4">
+          {% for error in item_formset.non_form_errors %}
+            <div>{{ error }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <div id="order-items-container">
+        {% for item_form in item_formset %}
+          <div class="row g-3 align-items-end mb-3 order-item-row">
+            {{ item_form.id }}
+            <div class="col-md-6">
+              {{ item_form.pizza.label_tag }}
+              {{ item_form.pizza }}
+              {% if item_form.pizza.errors %}
+                <div class="text-danger small mt-1">{{ item_form.pizza.errors|join:", " }}</div>
+              {% endif %}
+            </div>
+            <div class="col-md-3">
+              {{ item_form.quantity.label_tag }}
+              {{ item_form.quantity }}
+              {% if item_form.quantity.errors %}
+                <div class="text-danger small mt-1">{{ item_form.quantity.errors|join:", " }}</div>
+              {% endif %}
+            </div>
+            <div class="col-md-3">
+              <div class="form-check mt-4 d-none">
+                {{ item_form.DELETE }}
+                <label class="form-check-label" for="{{ item_form.DELETE.id_for_label }}">Eliminar ítem</label>
+              </div>
+              <button class="btn btn-light-danger btn-sm remove-item-btn" type="button">Quitar</button>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+
+      <template id="empty-order-item-template">
+        <div class="row g-3 align-items-end mb-3 order-item-row">
+          {{ empty_item_form.id }}
+          <div class="col-md-6">
+            {{ empty_item_form.pizza.label_tag }}
+            {{ empty_item_form.pizza }}
+          </div>
+          <div class="col-md-3">
+            {{ empty_item_form.quantity.label_tag }}
+            {{ empty_item_form.quantity }}
+          </div>
+          <div class="col-md-3">
+            <div class="form-check mt-4 d-none">
+              {{ empty_item_form.DELETE }}
+              <label class="form-check-label" for="{{ empty_item_form.DELETE.id_for_label }}">Eliminar ítem</label>
+            </div>
+            <button class="btn btn-light-danger btn-sm remove-item-btn" type="button">Quitar</button>
+          </div>
+        </div>
+      </template>
+
+      <div class="mb-4">
+        <button id="add-order-item-btn" class="btn btn-light-primary" type="button">Agregar ítem</button>
+      </div>
+
+      <button class="btn btn-primary" type="submit">Guardar</button>
+    </form>
+  </div>
+</div>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const isNewCustomer = document.getElementById("id_is_new_customer");
+    const existingCustomerGroup = document.getElementById("existing-customer-group");
+    const newCustomerFields = document.getElementById("new-customer-fields");
+    const container = document.getElementById("order-items-container");
+    const addBtn = document.getElementById("add-order-item-btn");
+    const totalFormsInput = document.getElementById("id_items-TOTAL_FORMS");
+    const template = document.getElementById("empty-order-item-template");
+
+    function toggleCustomerMode() {
+      const creatingNew = isNewCustomer && isNewCustomer.checked;
+      if (existingCustomerGroup) {
+        existingCustomerGroup.style.display = creatingNew ? "none" : "block";
+      }
+      if (newCustomerFields) {
+        newCustomerFields.style.display = creatingNew ? "block" : "none";
+      }
+    }
+
+    function bindRemoveButton(button) {
+      button.addEventListener("click", function () {
+        const row = button.closest(".order-item-row");
+        if (!row) return;
+        const deleteInput = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
+        if (deleteInput) {
+          deleteInput.checked = true;
+        }
+        row.style.display = "none";
+      });
+    }
+
+    function addItemRow() {
+      if (!template || !container || !totalFormsInput) return;
+      const index = parseInt(totalFormsInput.value, 10);
+      const raw = template.innerHTML.replaceAll("__prefix__", String(index));
+      const wrapper = document.createElement("div");
+      wrapper.innerHTML = raw.trim();
+      const row = wrapper.firstElementChild;
+      container.appendChild(row);
+      totalFormsInput.value = String(index + 1);
+
+      row.querySelectorAll("label").forEach(function (label) {
+        if (label.htmlFor) {
+          label.htmlFor = label.htmlFor.replace("__prefix__", String(index));
+        }
+      });
+      const removeBtn = row.querySelector(".remove-item-btn");
+      if (removeBtn) bindRemoveButton(removeBtn);
+    }
+
+    if (isNewCustomer) {
+      isNewCustomer.addEventListener("change", toggleCustomerMode);
+      toggleCustomerMode();
+    }
+
+    container.querySelectorAll(".remove-item-btn").forEach(bindRemoveButton);
+    if (addBtn) {
+      addBtn.addEventListener("click", addItemRow);
+    }
+  });
+</script>
+{% endblock %}

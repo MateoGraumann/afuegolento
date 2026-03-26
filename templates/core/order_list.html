@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Pedidos | Pizzería BO{% endblock %}
+{% block page_title %}Pedidos{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-end mb-3">
+  <a class="btn btn-primary" href="/orders/new/">
+    <i class="bi bi-plus-circle"></i>&nbsp;Nuevo pedido
+  </a>
+</div>
+
+<div class="card bo-content-card">
+  <div class="table-responsive">
+    <table class="table table-row-dashed align-middle gs-0 gy-3 bo-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Cliente</th>
+          <th>Fecha operativa</th>
+          <th>Estado</th>
+          <th>Total envío</th>
+          <th>Dirección envío</th>
+          <th>Ítems</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for order in orders %}
+        <tr>
+          <td>#{{ order.id }}</td>
+          <td>
+            {% if order.customer %}
+              {{ order.customer.first_name }} {{ order.customer.last_name }}
+            {% else %}
+              -
+            {% endif %}
+          </td>
+          <td>{{ order.business_date }}</td>
+          <td>{{ order.get_status_display }}</td>
+          <td>{{ order.total_envio|default:"-" }}</td>
+          <td>{{ order.direccion_envio|default:"-" }}</td>
+          <td>{{ order.items.count }}</td>
+          <td>
+            {% if order.sale %}
+              <span class="badge badge-light-success">Cerrado</span>
+            {% else %}
+              <div class="dropdown">
+                <button class="btn btn-sm btn-light-primary dropdown-toggle" data-bs-toggle="dropdown" type="button">
+                  Acciones
+                </button>
+                <div class="dropdown-menu">
+                  <a class="dropdown-item" href="/orders/{{ order.id }}/edit/">Editar</a>
+                  <form method="post" action="/orders/{{ order.id }}/delete/" onsubmit="return confirm('¿Eliminar pedido?');">
+                    {% csrf_token %}
+                    <button class="dropdown-item text-danger" type="submit">Eliminar</button>
+                  </form>
+                </div>
+              </div>
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr class="bo-empty-row"><td colspan="8">Aún no hay pedidos cargados.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

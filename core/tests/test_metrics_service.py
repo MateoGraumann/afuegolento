@@ -1,7 +1,7 @@
 from decimal import Decimal
 from django.test import TestCase
 
-from core.models import Ingredient, Pizza, RecipeItem
+from core.models import Customer, Ingredient, Pizza, RecipeItem
 from core.services.metrics import (
     get_ingredient_consumption,
     get_low_and_negative_stock,
@@ -31,6 +31,7 @@ class MetricsServiceTests(TestCase):
         )
         self.mozza = Pizza.objects.create(name="Mozzarella", sale_price=Decimal("1000"))
         self.fugazza = Pizza.objects.create(name="Fugazza", sale_price=Decimal("1200"))
+        self.customer = Customer.objects.create(first_name="Paula", last_name="Ruiz", phone="11995544")
         RecipeItem.objects.create(pizza=self.mozza, ingredient=self.cheese, quantity=Decimal("200"))
         RecipeItem.objects.create(pizza=self.mozza, ingredient=self.sauce, quantity=Decimal("100"))
         RecipeItem.objects.create(pizza=self.fugazza, ingredient=self.cheese, quantity=Decimal("250"))
@@ -41,6 +42,7 @@ class MetricsServiceTests(TestCase):
             business_date="2026-03-25",
             notes="Morning",
             items=[{"pizza_id": self.mozza.id, "quantity": 3}],
+            customer_id=self.customer.id,
         )
         summary = get_profit_summary("2026-03-25", "2026-03-25")
         # controlled case: 1000 price, 500 unit cost, qty 3 => 1500 total profit
@@ -51,6 +53,7 @@ class MetricsServiceTests(TestCase):
             business_date="2026-03-25",
             notes="Close",
             items=[{"pizza_id": self.fugazza.id, "quantity": 2}],
+            customer_id=self.customer.id,
         )
         self.fugazza.sale_price = Decimal("3000")
         self.fugazza.save(update_fields=["sale_price"])
@@ -66,6 +69,7 @@ class MetricsServiceTests(TestCase):
                 {"pizza_id": self.mozza.id, "quantity": 5},
                 {"pizza_id": self.fugazza.id, "quantity": 2},
             ],
+            customer_id=self.customer.id,
         )
         top_qty = get_top_pizzas_by_quantity("2026-03-25", "2026-03-25")
         top_rev = get_top_pizzas_by_revenue("2026-03-25", "2026-03-25")
@@ -77,6 +81,7 @@ class MetricsServiceTests(TestCase):
             business_date="2026-03-25",
             notes="Service",
             items=[{"pizza_id": self.mozza.id, "quantity": 8}],
+            customer_id=self.customer.id,
         )
         consumption = get_ingredient_consumption("2026-03-25", "2026-03-25")
         self.assertTrue(any(row["ingredient__name"] == "Cheese" for row in consumption))
@@ -90,6 +95,7 @@ class MetricsServiceTests(TestCase):
             business_date="2026-03-25",
             notes="Service",
             items=[{"pizza_id": self.mozza.id, "quantity": 1}],
+            customer_id=self.customer.id,
         )
         rows = get_unit_margin_by_pizza("2026-03-25", "2026-03-25")
         self.assertEqual(rows[0]["pizza__name"], "Mozzarella")

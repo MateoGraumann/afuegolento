@@ -2,8 +2,8 @@ from decimal import Decimal
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 
-from core.models import Ingredient, IngredientMovement, Pizza, RecipeItem
-from core.services.sales import create_sale
+from core.models import Customer, Ingredient, IngredientMovement, Order, OrderItem, Pizza, RecipeItem, Sale
+from core.services.sales import close_sales_for_business_date, create_sale
 
 
 class SalesServiceTests(TestCase):
@@ -23,6 +23,7 @@ class SalesServiceTests(TestCase):
             min_stock=Decimal("400"),
         )
         self.pizza = Pizza.objects.create(name="Mozzarella", sale_price=Decimal("1000"))
+        self.customer = Customer.objects.create(first_name="Mario", last_name="Lopez", phone="11001122")
         RecipeItem.objects.create(pizza=self.pizza, ingredient=self.cheese, quantity=Decimal("200"))
         RecipeItem.objects.create(pizza=self.pizza, ingredient=self.sauce, quantity=Decimal("100"))
 
@@ -32,6 +33,7 @@ class SalesServiceTests(TestCase):
             notes="Rush hour",
             items=[{"pizza_id": self.pizza.id, "quantity": 2}],
             reference_prefix="SALE",
+            customer_id=self.customer.id,
         )
 
         self.assertEqual(sale.items.count(), 1)
@@ -59,6 +61,7 @@ class SalesServiceTests(TestCase):
                 notes="",
                 items=[{"pizza_id": empty_recipe_pizza.id, "quantity": 1}],
                 reference_prefix="SALE",
+                customer_id=self.customer.id,
             )
 
     def test_create_sale_fails_with_inactive_pizza(self):
@@ -71,6 +74,7 @@ class SalesServiceTests(TestCase):
                 notes="",
                 items=[{"pizza_id": self.pizza.id, "quantity": 1}],
                 reference_prefix="SALE",
+                customer_id=self.customer.id,
             )
 
     def test_create_sale_fails_with_inactive_ingredient(self):
@@ -83,4 +87,27 @@ class SalesServiceTests(TestCase):
                 notes="",
                 items=[{"pizza_id": self.pizza.id, "quantity": 1}],
                 reference_prefix="SALE",
+                customer_id=self.customer.id,
             )
+
+    def test_close_sales_for_business_date_from_delivered_orders(self):
+        order = Order.objects.create(
+            business_date="2026-03-25",
+            customer=self.customer,
+            status=Order.Status.DELIVERED,
+            notes="pedido",
+            total_envio=Decimal("100.00"),
+        )
+        OrderItem.objects.create(order=order, pizza=self.pizza, quantity=2)
+
+        created_sales = close_sales_for_business_date("2026-03-25")
+
+        self.assertEqual(len(created_sales), 1)
+        order.refresh_from_db()
+        self.assertIsNotNone(order.sale)
+        self.assertEqual(Sale.objects.count(), 1)
+        self.assertEqual(order.sale.total_revenue, Decimal("2100.00"))
+        self.assertEqual(order.sale.total_profit, Decimal("2090.00"))
+
+        created_again = close_sales_for_business_date("2026-03-25")
+        self.assertEqual(len(created_again), 0)

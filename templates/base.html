@@ -31,8 +31,8 @@
       margin-bottom: 0;
     }
     .bo-content-card .table-responsive {
-      padding-left: 1rem;
-      padding-right: 1rem;
+      padding-left: 0;
+      padding-right: 0;
     }
     .bo-table thead th,
     .bo-table tbody td {
@@ -109,7 +109,7 @@
     <div class="page d-flex flex-row flex-column-fluid">
       <div id="kt_aside" class="aside aside-dark aside-hoverable">
         <div class="aside-logo flex-column-auto px-6 h-75px d-flex align-items-center">
-          <span class="fs-3 fw-bold text-white">Pizzería BO</span>
+          <span class="fs-3 fw-bold text-white">A fuego lento | Backoffice</span>
         </div>
         <div class="aside-menu flex-column-fluid">
           <div class="hover-scroll-overlay-y my-5 my-lg-5 px-3" id="kt_aside_menu_wrapper">
@@ -132,6 +132,12 @@
                   <span class="menu-title">Ventas</span>
                 </a>
               </div>
+              <div class="menu-item">
+                <a class="menu-link {% if '/orders/' in request.path %}active{% endif %}" href="/orders/">
+                  <span class="menu-icon"><i class="bi bi-receipt fs-3"></i></span>
+                  <span class="menu-title">Pedidos</span>
+                </a>
+              </div>
               <div class="menu-content pt-4 pb-2">
                 <span class="menu-section text-muted text-uppercase fs-8 ls-1">ABM's</span>
               </div>
@@ -145,6 +151,12 @@
                 <a class="menu-link {% if '/pizzas/' in request.path %}active{% endif %}" href="/pizzas/">
                   <span class="menu-icon"><i class="bi bi-circle-square fs-3"></i></span>
                   <span class="menu-title">Pizzas</span>
+                </a>
+              </div>
+              <div class="menu-item">
+                <a class="menu-link {% if '/customers/' in request.path %}active{% endif %}" href="/customers/">
+                  <span class="menu-icon"><i class="bi bi-people fs-3"></i></span>
+                  <span class="menu-title">Clientes</span>
                 </a>
               </div>
               <div class="menu-item">
@@ -165,9 +177,6 @@
               <button class="btn btn-icon btn-active-color-primary w-35px h-35px" data-bs-toggle="collapse" data-bs-target="#kt_aside">
                 <i class="bi bi-list fs-2"></i>
               </button>
-            </div>
-            <div class="d-flex align-items-center">
-              <span class="fs-6 fw-semibold text-gray-700">Backoffice operativo</span>
             </div>
           </div>
         </div>
