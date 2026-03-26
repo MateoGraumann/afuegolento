@@ -9,7 +9,7 @@
 </div>
 
 <div class="card bo-content-card">
-  <div class="table-responsive">
+  <div class="table-responsive bo-table-responsive">
     <table class="table table-row-dashed align-middle gs-0 gy-3 bo-table">
       <thead>
         <tr>
@@ -37,7 +37,7 @@
               <div class="dropdown-menu">
                 <a class="dropdown-item" href="/ingredients/{{ ingredient.id }}/edit/">Editar</a>
                 <a class="dropdown-item" href="/ingredients/{{ ingredient.id }}/adjust-stock/">Ajustar</a>
-                <form method="post" action="/ingredients/{{ ingredient.id }}/delete/" onsubmit="return confirm('¿Eliminar insumo?');">
+                <form method="post" action="/ingredients/{{ ingredient.id }}/delete/" data-confirm-message="¿Eliminar insumo?">
                   {% csrf_token %}
                   <button class="dropdown-item text-danger" type="submit">Eliminar</button>
                 </form>

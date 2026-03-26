@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}A fuego lento | Backoffice{% endblock %}</title>
+  <title>A fuego lento | Backoffice</title>
   <link href="https://preview.keenthemes.com/metronic8/demo1/assets/plugins/global/plugins.bundle.css" rel="stylesheet" type="text/css">
   <link href="https://preview.keenthemes.com/metronic8/demo1/assets/css/style.bundle.css" rel="stylesheet" type="text/css">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
@@ -33,6 +33,9 @@
     .bo-content-card .table-responsive {
       padding-left: 0;
       padding-right: 0;
+    }
+    .bo-content-card .table-responsive.bo-table-responsive {
+      overflow: visible;
     }
     .bo-table thead th,
     .bo-table tbody td {
@@ -208,6 +211,25 @@
       </div>
     </div>
   </div>
+
+  <div class="modal fade" id="confirmActionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Confirmar acción</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-0" id="confirmActionModalMessage">¿Deseás continuar?</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="confirmActionModalAccept">Confirmar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="https://preview.keenthemes.com/metronic8/demo1/assets/plugins/global/plugins.bundle.js"></script>
   <script src="https://preview.keenthemes.com/metronic8/demo1/assets/js/scripts.bundle.js"></script>
   <script>
@@ -226,6 +248,50 @@
           label.appendChild(marker);
         });
       });
+
+      const modalElement = document.getElementById("confirmActionModal");
+      const modalMessage = document.getElementById("confirmActionModalMessage");
+      const modalAccept = document.getElementById("confirmActionModalAccept");
+      const confirmModal = modalElement ? new bootstrap.Modal(modalElement) : null;
+      let pendingForm = null;
+
+      document.addEventListener("submit", function (event) {
+        const form = event.target;
+        if (!(form instanceof HTMLFormElement)) return;
+
+        const confirmMessage = form.dataset.confirmMessage;
+        if (!confirmMessage) return;
+        if (form.dataset.confirmed === "true") {
+          form.dataset.confirmed = "false";
+          return;
+        }
+
+        event.preventDefault();
+        pendingForm = form;
+        if (modalMessage) {
+          modalMessage.textContent = confirmMessage;
+        }
+        if (confirmModal) {
+          confirmModal.show();
+        }
+      });
+
+      if (modalAccept) {
+        modalAccept.addEventListener("click", function () {
+          if (!pendingForm) return;
+          pendingForm.dataset.confirmed = "true";
+          if (confirmModal) {
+            confirmModal.hide();
+          }
+          pendingForm.requestSubmit();
+        });
+      }
+
+      if (modalElement) {
+        modalElement.addEventListener("hidden.bs.modal", function () {
+          pendingForm = null;
+        });
+      }
     });
   </script>
 </body>
