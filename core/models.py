@@ -20,13 +20,39 @@ class Ingredient(TimestampedModel):
 
     name = models.CharField(max_length=120, unique=True)
     unit = models.CharField(max_length=2, choices=Unit.choices)
-    unit_price = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
-    current_stock = models.DecimalField(max_digits=12, decimal_places=3, validators=[MinValueValidator(0)])
-    min_stock = models.DecimalField(max_digits=12, decimal_places=3, validators=[MinValueValidator(0)])
+    quantity = models.DecimalField(
+        max_digits=12,
+        decimal_places=3,
+        validators=[MinValueValidator(0.001)],
+        verbose_name="Cantidad",
+    )
+    total_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=[MinValueValidator(0)],
+        verbose_name="Precio total",
+    )
+    unit_price = models.DecimalField(
+        max_digits=14,
+        decimal_places=6,
+        validators=[MinValueValidator(0)],
+        verbose_name="Precio unitario",
+    )
     is_active = models.BooleanField(default=True)
 
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        from decimal import Decimal, ROUND_HALF_UP
+
+        quantity = Decimal(self.quantity or 0)
+        total_price = Decimal(self.total_price or 0)
+        if quantity > 0:
+            self.unit_price = (total_price / quantity).quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP)
+        else:
+            self.unit_price = Decimal("0")
+        super().save(*args, **kwargs)
 
 
 class Pizza(TimestampedModel):
@@ -128,30 +154,3 @@ class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="items")
     pizza = models.ForeignKey(Pizza, on_delete=models.PROTECT, related_name="order_items")
     quantity = models.PositiveIntegerField(validators=[MinValueValidator(1)])
-
-
-class IngredientMovement(models.Model):
-    class MovementType(models.TextChoices):
-        SALE_CONSUMPTION = "SALE_CONSUMPTION", "Consumo por venta"
-        MANUAL_ADJUSTMENT = "MANUAL_ADJUSTMENT", "Ajuste manual"
-
-    class Direction(models.TextChoices):
-        IN = "IN", "Entrada"
-        OUT = "OUT", "Salida"
-
-    ingredient = models.ForeignKey(Ingredient, on_delete=models.PROTECT, related_name="movements")
-    movement_type = models.CharField(max_length=20, choices=MovementType.choices)
-    direction = models.CharField(max_length=3, choices=Direction.choices)
-    quantity = models.DecimalField(max_digits=12, decimal_places=3, validators=[MinValueValidator(0.001)])
-    created_at = models.DateTimeField(default=timezone.now)
-    reference = models.CharField(max_length=120)
-
-    def clean(self):
-        super().clean()
-        if not self.reference or not self.reference.strip():
-            raise ValidationError({"reference": "La referencia es obligatoria."})
-        if self.movement_type == self.MovementType.SALE_CONSUMPTION and self.direction != self.Direction.OUT:
-            raise ValidationError({"direction": "SALE_CONSUMPTION debe usar dirección OUT."})
-
-    def __str__(self):
-        return f"{self.ingredient.name} {self.movement_type} {self.quantity}"

@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from core.models import Customer, Ingredient, IngredientMovement, Order, OrderItem, Pizza, RecipeItem, Sale, SaleItem
+from core.models import Customer, Ingredient, Order, OrderItem, Pizza, RecipeItem, Sale, SaleItem
 
 
 @admin.register(Customer)
@@ -12,9 +12,10 @@ class CustomerAdmin(admin.ModelAdmin):
 
 @admin.register(Ingredient)
 class IngredientAdmin(admin.ModelAdmin):
-    list_display = ("name", "unit", "unit_price", "current_stock", "min_stock", "is_active")
+    list_display = ("name", "unit", "quantity", "total_price", "unit_price", "is_active")
     list_filter = ("unit", "is_active")
     search_fields = ("name",)
+    readonly_fields = ("unit_price",)
 
 
 @admin.register(Pizza)
@@ -54,10 +55,3 @@ class OrderAdmin(admin.ModelAdmin):
     list_filter = ("status", "business_date")
     search_fields = ("customer__first_name", "customer__last_name", "customer__phone", "direccion_envio", "notes")
     inlines = [OrderItemInline]
-
-
-@admin.register(IngredientMovement)
-class IngredientMovementAdmin(admin.ModelAdmin):
-    list_display = ("ingredient", "movement_type", "direction", "quantity", "reference", "created_at")
-    list_filter = ("movement_type", "direction")
-    search_fields = ("ingredient__name", "reference")

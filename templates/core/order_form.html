@@ -66,17 +66,8 @@
       </div>
 
       <div class="mb-4">
-        {{ form.status.label_tag }}
-        {{ form.status }}
-        {% if form.status.errors %}
-          <div class="text-danger small mt-1">{{ form.status.errors|join:", " }}</div>
-        {% endif %}
-      </div>
-
-      <div class="mb-4">
         {{ form.total_envio.label_tag }}
-        {{ form.total_envio }}
-        {% if form.total_envio.errors %}
+        {{ form.total_envio }}        {% if form.total_envio.errors %}
           <div class="text-danger small mt-1">{{ form.total_envio.errors|join:", " }}</div>
         {% endif %}
       </div>

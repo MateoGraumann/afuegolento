@@ -1,0 +1,361 @@
+{% extends "base.html" %}
+{% block title %}Simulador de precios | Pizzería BO{% endblock %}
+{% block page_title %}Simulador de precios{% endblock %}
+{% block content %}
+<style>
+  .bo-sim-controls .form-control { min-height: 48px; font-size: 1.05rem; }
+  .bo-sim-tooltip { cursor: help; }
+  .bo-sim-mobile-card { border: 1px solid #edf2f7; border-radius: 0.75rem; }
+  .bo-sim-bar {
+    height: 10px;
+    border-radius: 999px;
+    background: #e2e8f0;
+    overflow: hidden;
+  }
+  .bo-sim-bar > span {
+    display: block;
+    height: 100%;
+    background: #3b82f6;
+  }
+  .bo-sim-row { cursor: pointer; }
+  .bo-sim-row:hover td { background: #f8fbff; }
+  .bo-sim-diff-pos { color: #15803d; font-weight: 700; }
+  .bo-sim-diff-neg { color: #b91c1c; font-weight: 700; }
+  .bo-sim-flash {
+    animation: boSimFlash 0.7s ease;
+  }
+  @keyframes boSimFlash {
+    0% { background-color: #dbeafe; }
+    100% { background-color: transparent; }
+  }
+  @media (max-width: 991.98px) {
+    .bo-sim-desktop-table { display: none !important; }
+  }
+  @media (min-width: 992px) {
+    .bo-sim-mobile-list { display: none !important; }
+  }
+</style>
+
+<div class="alert alert-primary d-flex align-items-start p-5 mb-5">
+  <i class="bi bi-info-circle-fill fs-3 text-primary me-3 mt-1"></i>
+  <div>
+    <div>Referencia orientativa: no modifica costos ni ganancias registradas.</div>
+    <div class="mt-2 small">
+      Cambiá overhead o margen y tocá <strong>Calcular</strong>.
+      Se actualizan costo total, precio ideal, margen y diferencia.
+      El <strong>precio actual</strong> no cambia: es el precio de venta cargado en Pizzas.
+    </div>
+  </div>
+</div>
+
+<div class="card mb-4 bo-content-card">
+  <div class="card-body">
+    <div class="row g-4 align-items-end bo-form bo-sim-controls">
+      <div class="col-md-5">
+        <label class="form-label text-dark d-flex align-items-center gap-2" for="id_overhead_fixed">
+          Overhead por pizza
+          <i
+            class="bi bi-question-circle text-primary bo-sim-tooltip"
+            data-bs-toggle="tooltip"
+            data-bs-placement="top"
+            title="Gastos indirectos por unidad: cajas, gas, electricidad, limpieza, aceite, condimentos y desgaste de utensilios. No forma parte de la receta, pero sí del costo real."
+          ></i>
+        </label>
+        <div class="input-group">
+          <span class="input-group-text">$</span>
+          <input class="form-control" type="number" step="0.01" min="0" id="id_overhead_fixed" value="{{ overhead_fixed|stringformat:'.2f' }}" inputmode="decimal">
+        </div>
+      </div>
+      <div class="col-md-5">
+        <label class="form-label text-dark" for="id_margin_pct">Margen objetivo</label>
+        <div class="input-group">
+          <input class="form-control" type="number" step="0.01" min="0.01" max="99.99" id="id_margin_pct" value="{{ margin_pct|stringformat:'.2f' }}" inputmode="decimal">
+          <span class="input-group-text">%</span>
+        </div>
+      </div>
+      <div class="col-12 col-md-2">
+        <button class="btn btn-primary w-100" type="button" id="sim-recalculate-btn" style="min-height: 48px;">Calcular</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="d-flex flex-column gap-3 bo-sim-mobile-list" id="sim-mobile-list">
+  {% for row in rows %}
+    <button type="button" class="card bo-content-card bo-sim-mobile-card text-start w-100 p-0 border-0" data-pizza-id="{{ row.pizza_id }}">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+          <div class="fw-bold fs-5 text-dark">{{ row.pizza_name }}</div>
+          <span class="badge {% if row.status == 'below' %}badge-light-danger{% elif row.status == 'excellent' %}badge-light-success{% else %}badge-light-primary{% endif %}" data-field="status_badge">
+            {% if row.status == 'below' %}Debajo{% elif row.status == 'excellent' %}Excelente{% else %}OK{% endif %}
+          </span>
+        </div>
+        <div class="d-flex justify-content-between mb-2">
+          <span class="text-muted">Precio actual</span>
+          <span class="fw-bold" data-field="current_price">${{ row.current_price }}</span>
+        </div>
+        <div class="d-flex justify-content-between mb-2">
+          <span class="text-muted">Precio ideal</span>
+          <span class="fw-bold" data-field="ideal_price">${{ row.ideal_price }}</span>
+        </div>
+        <div class="d-flex justify-content-between">
+          <span class="text-muted">Margen</span>
+          <span class="fw-bold" data-field="real_margin_pct">{% if row.real_margin_pct is not None %}{{ row.real_margin_pct }}%{% else %}—{% endif %}</span>
+        </div>
+      </div>
+    </button>
+  {% empty %}
+    <div class="card bo-content-card"><div class="card-body text-center text-muted fw-semibold">No hay pizzas activas para simular.</div></div>
+  {% endfor %}
+</div>
+
+<div class="card bo-content-card bo-sim-desktop-table">
+  <div class="table-responsive">
+    <table class="table table-row-dashed align-middle gs-0 gy-3 bo-table mb-0">
+      <thead>
+        <tr>
+          <th>Pizza</th>
+          <th>Costo total</th>
+          <th>Precio actual</th>
+          <th>Precio ideal</th>
+          <th>Margen</th>
+          <th>Diferencia</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody id="sim-table-body">
+      {% for row in rows %}
+        <tr class="bo-sim-row" data-pizza-id="{{ row.pizza_id }}" title="Ver desglose">
+          <td class="fw-bold">{{ row.pizza_name }}</td>
+          <td data-field="total_cost">${{ row.total_cost }}</td>
+          <td data-field="current_price">${{ row.current_price }}</td>
+          <td data-field="ideal_price">${{ row.ideal_price }}</td>
+          <td data-field="real_margin_pct">{% if row.real_margin_pct is not None %}{{ row.real_margin_pct }}%{% else %}—{% endif %}</td>
+          <td data-field="difference" class="{% if row.difference >= 0 %}bo-sim-diff-pos{% else %}bo-sim-diff-neg{% endif %}">{% if row.difference >= 0 %}+{% endif %}${{ row.difference }}</td>
+          <td data-field="status_badge">
+            <span class="badge {% if row.status == 'below' %}badge-light-danger{% elif row.status == 'excellent' %}badge-light-success{% else %}badge-light-primary{% endif %}">
+              {% if row.status == 'below' %}Debajo{% elif row.status == 'excellent' %}Excelente{% else %}OK{% endif %}
+            </span>
+          </td>
+        </tr>
+      {% empty %}
+        <tr class="bo-empty-row"><td colspan="7">No hay pizzas activas para simular.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="offcanvas offcanvas-end" tabindex="-1" id="simPizzaDrawer" aria-labelledby="simPizzaDrawerLabel">
+  <div class="offcanvas-header border-bottom">
+    <h5 class="offcanvas-title" id="simPizzaDrawerLabel">Desglose</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
+  </div>
+  <div class="offcanvas-body">
+    <div class="mb-5">
+      <div class="bo-kpi-title">Costo total</div>
+      <div class="h2 bo-kpi-value" id="sim-drawer-total">$0</div>
+    </div>
+    <div id="sim-drawer-breakdown" class="d-flex flex-column gap-4"></div>
+  </div>
+</div>
+
+<script id="sim-payload" type="application/json">{{ simulator_payload_json|safe }}</script>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+(function () {
+  const payloadEl = document.getElementById("sim-payload");
+  if (!payloadEl) return;
+
+  const payload = JSON.parse(payloadEl.textContent);
+  const overheadInput = document.getElementById("id_overhead_fixed");
+  const marginInput = document.getElementById("id_margin_pct");
+  const drawerEl = document.getElementById("simPizzaDrawer");
+  let drawer = null;
+  if (drawerEl && typeof bootstrap !== "undefined" && bootstrap.Offcanvas) {
+    drawer = bootstrap.Offcanvas.getOrCreateInstance(drawerEl);
+  }
+
+  const money = (value) => {
+    const n = Number(value);
+    return n.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+  const moneySigned = (value) => {
+    const n = Number(value);
+    const prefix = n >= 0 ? "+$" : "-$";
+    return prefix + money(Math.abs(n));
+  };
+  const toNumber = (raw, fallback) => {
+    const n = Number(String(raw).replace(",", "."));
+    return Number.isFinite(n) ? n : fallback;
+  };
+  const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+
+  function statusLabel(status) {
+    if (status === "below") return "Debajo";
+    if (status === "excellent") return "Excelente";
+    return "OK";
+  }
+
+  function evaluatePizza(pizza, overheadFixed, marginPct, meta) {
+    const lines = (pizza.lines || []).map((line) => {
+      const quantity = toNumber(line.quantity, 0);
+      const unitPrice = toNumber(line.unit_price, 0);
+      return {
+        ingredient_id: line.ingredient_id,
+        name: line.name,
+        line_cost: round2(quantity * unitPrice),
+      };
+    });
+    const recipeCost = round2(lines.reduce((acc, line) => acc + line.line_cost, 0));
+    const totalCost = round2(recipeCost + overheadFixed);
+    const marginFactor = 1 - marginPct / 100;
+    const idealPrice = marginFactor > 0 ? round2(totalCost / marginFactor) : 0;
+    const currentPrice = round2(toNumber(pizza.sale_price, 0));
+    const profit = round2(currentPrice - totalCost);
+    const difference = round2(currentPrice - idealPrice);
+    const realMarginPct = currentPrice > 0 ? round2((profit / currentPrice) * 100) : null;
+
+    let status = "on_target";
+    const tolerance = toNumber(meta.margin_tolerance_pct, 2);
+    const excellentBuffer = toNumber(meta.excellent_margin_buffer_pct, 5);
+    if (realMarginPct === null || realMarginPct < marginPct - tolerance) {
+      status = "below";
+    } else if (realMarginPct >= marginPct + excellentBuffer) {
+      status = "excellent";
+    }
+
+    const breakdown = lines.map((line) => ({
+      label: line.name,
+      amount: line.line_cost,
+      share_pct: totalCost > 0 ? round2((line.line_cost / totalCost) * 100) : 0,
+    }));
+    breakdown.push({
+      label: "Overhead",
+      amount: overheadFixed,
+      share_pct: totalCost > 0 ? round2((overheadFixed / totalCost) * 100) : 0,
+    });
+    breakdown.sort((a, b) => b.amount - a.amount);
+
+    return {
+      pizza_id: pizza.id,
+      pizza_name: pizza.name,
+      total_cost: totalCost,
+      current_price: currentPrice,
+      ideal_price: idealPrice,
+      real_margin_pct: realMarginPct,
+      difference,
+      status,
+      breakdown,
+    };
+  }
+
+  function statusBadgeHtml(status) {
+    let cls = "badge-light-primary";
+    if (status === "below") cls = "badge-light-danger";
+    if (status === "excellent") cls = "badge-light-success";
+    return '<span class="badge ' + cls + '">' + statusLabel(status) + "</span>";
+  }
+
+  function updateField(root, field, html, className) {
+    root.querySelectorAll('[data-field="' + field + '"]').forEach((el) => {
+      el.innerHTML = html;
+      if (className !== undefined) {
+        el.classList.remove("bo-sim-diff-pos", "bo-sim-diff-neg");
+        if (className) el.classList.add(className);
+      }
+    });
+  }
+
+  function renderRows(rows) {
+    rows.forEach((row) => {
+      document.querySelectorAll('[data-pizza-id="' + row.pizza_id + '"]').forEach((root) => {
+        updateField(root, "total_cost", "$" + money(row.total_cost));
+        updateField(root, "current_price", "$" + money(row.current_price));
+        updateField(root, "ideal_price", "$" + money(row.ideal_price));
+        updateField(
+          root,
+          "real_margin_pct",
+          row.real_margin_pct === null ? "—" : money(row.real_margin_pct) + "%"
+        );
+        updateField(
+          root,
+          "difference",
+          moneySigned(row.difference),
+          row.difference >= 0 ? "bo-sim-diff-pos" : "bo-sim-diff-neg"
+        );
+        updateField(root, "status_badge", statusBadgeHtml(row.status));
+        root.classList.remove("bo-sim-flash");
+        void root.offsetWidth;
+        root.classList.add("bo-sim-flash");
+      });
+    });
+  }
+
+  let latestRows = [];
+
+  function recalculate() {
+    const defaults = payload.defaults || {};
+    const overheadFixed = Math.max(0, toNumber(overheadInput.value, toNumber(defaults.overhead_fixed, 900)));
+    let marginPct = toNumber(marginInput.value, toNumber(defaults.margin_pct, 50));
+    if (marginPct <= 0 || marginPct >= 100) {
+      marginPct = toNumber(defaults.margin_pct, 50);
+    }
+    overheadInput.value = String(overheadFixed);
+    marginInput.value = String(marginPct);
+
+    latestRows = (payload.pizzas || []).map((pizza) =>
+      evaluatePizza(pizza, overheadFixed, marginPct, payload.meta || {})
+    );
+    renderRows(latestRows);
+  }
+
+  function openDrawer(pizzaId) {
+    const row = latestRows.find((item) => String(item.pizza_id) === String(pizzaId));
+    if (!row || !drawer) return;
+    document.getElementById("simPizzaDrawerLabel").textContent = row.pizza_name;
+    document.getElementById("sim-drawer-total").textContent = "$" + money(row.total_cost);
+
+    const maxAmount = Math.max.apply(null, row.breakdown.map((item) => item.amount).concat([1]));
+    document.getElementById("sim-drawer-breakdown").innerHTML = row.breakdown
+      .map((item) => {
+        const width = Math.max(4, Math.round((item.amount / maxAmount) * 100));
+        return (
+          "<div>" +
+          '<div class="d-flex justify-content-between align-items-center mb-2">' +
+          '<span class="fw-semibold">' + item.label + "</span>" +
+          '<span class="text-muted">$' + money(item.amount) + " · " + money(item.share_pct) + "%</span>" +
+          "</div>" +
+          '<div class="bo-sim-bar"><span style="width:' + width + '%"></span></div>' +
+          "</div>"
+        );
+      })
+      .join("");
+    drawer.show();
+  }
+
+  if (typeof bootstrap !== "undefined" && bootstrap.Tooltip) {
+    document.querySelectorAll("[data-bs-toggle='tooltip']").forEach((el) => {
+      bootstrap.Tooltip.getOrCreateInstance(el);
+    });
+  }
+
+  const recalculateBtn = document.getElementById("sim-recalculate-btn");
+  if (recalculateBtn) {
+    recalculateBtn.addEventListener("click", recalculate);
+  }
+  overheadInput.addEventListener("blur", recalculate);
+  marginInput.addEventListener("blur", recalculate);
+
+  document.querySelectorAll("[data-pizza-id]").forEach((el) => {
+    el.addEventListener("click", function () {
+      openDrawer(el.getAttribute("data-pizza-id"));
+    });
+  });
+
+  recalculate();
+})();
+</script>
+{% endblock %}

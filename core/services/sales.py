@@ -2,23 +2,12 @@ from decimal import Decimal, ROUND_HALF_UP
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.utils import dateparse, timezone
 
-from core.models import Customer, IngredientMovement, Order, Pizza, RecipeItem, Sale, SaleItem
+from core.models import Customer, Order, Pizza, RecipeItem, Sale, SaleItem
 
 
 def _to_money(value):
     return Decimal(value).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-
-
-def _movement_datetime(business_date):
-    movement_dt = timezone.now()
-    parsed_business_date = dateparse.parse_date(str(business_date))
-    if parsed_business_date:
-        movement_dt = timezone.make_aware(
-            timezone.datetime.combine(parsed_business_date, timezone.datetime.min.time())
-        )
-    return movement_dt
 
 
 def _get_recipe_items(pizza):
@@ -28,29 +17,12 @@ def _get_recipe_items(pizza):
     return recipe_items
 
 
-def _consume_stock(pizza, quantity, movement_dt, reference):
+def _calculate_unit_cost(pizza):
     total_unit_cost = Decimal("0")
-    recipe_items = _get_recipe_items(pizza)
-    for recipe_item in recipe_items:
+    for recipe_item in _get_recipe_items(pizza):
         ingredient = recipe_item.ingredient
         if not ingredient.is_active:
             raise ValidationError("La receta contiene un insumo inactivo.")
-
-        consumed = recipe_item.quantity * Decimal(quantity)
-        ingredient.current_stock = ingredient.current_stock - consumed
-        ingredient.save(update_fields=["current_stock", "updated_at"])
-
-        movement = IngredientMovement(
-            ingredient=ingredient,
-            movement_type=IngredientMovement.MovementType.SALE_CONSUMPTION,
-            direction=IngredientMovement.Direction.OUT,
-            quantity=consumed,
-            created_at=movement_dt,
-            reference=reference,
-        )
-        movement.full_clean()
-        movement.save()
-
         total_unit_cost += recipe_item.quantity * ingredient.unit_price
     return _to_money(total_unit_cost)
 
@@ -83,7 +55,6 @@ def create_sale(business_date, notes, items, reference_prefix="SALE", customer_i
         total_revenue = Decimal("0.00")
         total_cost = Decimal("0.00")
         total_profit = Decimal("0.00")
-        movement_dt = _movement_datetime(business_date)
         for item in items:
             pizza = Pizza.objects.filter(id=item.get("pizza_id")).first()
             quantity = item.get("quantity") or 0
@@ -96,12 +67,7 @@ def create_sale(business_date, notes, items, reference_prefix="SALE", customer_i
                 raise ValidationError("La cantidad debe ser mayor que cero.")
 
             applied_unit_price = _to_money(pizza.sale_price)
-            calculated_unit_cost = _consume_stock(
-                pizza=pizza,
-                quantity=quantity,
-                movement_dt=movement_dt,
-                reference=f"{reference_prefix}:{sale.id}",
-            )
+            calculated_unit_cost = _calculate_unit_cost(pizza)
             calculated_unit_profit = _to_money(applied_unit_price - calculated_unit_cost)
 
             SaleItem.objects.create(

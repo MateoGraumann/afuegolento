@@ -7,7 +7,7 @@
 {% endblock %}
 {% block page_title %}{% if pizza %}Editar pizza{% else %}Nueva pizza{% endif %}{% endblock %}
 {% block content %}
-<div class="card bo-content-card">
+<div class="card bo-content-card mb-5">
   <div class="card-body">
     <form method="post" class="bo-form">
       {% csrf_token %}
@@ -16,4 +16,57 @@
     </form>
   </div>
 </div>
+
+{% if pizza %}
+<div class="card bo-content-card">
+  <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <h3 class="card-title mb-0">Receta</h3>
+    <a class="btn btn-light-primary" href="{% url 'core:pizza_recipe_create' pizza.id %}">
+      <i class="bi bi-plus-circle"></i>&nbsp;Agregar insumo
+    </a>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive bo-table-responsive">
+      <table class="table table-row-dashed align-middle gs-0 gy-3 bo-table mb-0">
+        <thead>
+          <tr>
+            <th>Insumo</th>
+            <th>Cantidad por pizza</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for recipe in recipe_items %}
+          <tr>
+            <td>{{ recipe.ingredient.name }}</td>
+            <td>{{ recipe.quantity|floatformat:"-3" }} {{ recipe.ingredient.unit }}</td>
+            <td>
+              <div class="dropdown">
+                <button class="btn btn-sm btn-light-primary dropdown-toggle" data-bs-toggle="dropdown" type="button">
+                  Acciones
+                </button>
+                <div class="dropdown-menu">
+                  <a class="dropdown-item" href="{% url 'core:recipe_update' recipe.id %}">Editar</a>
+                  <form method="post" action="{% url 'core:recipe_delete' recipe.id %}" data-confirm-message="¿Eliminar insumo de la receta?">
+                    {% csrf_token %}
+                    <button class="dropdown-item text-danger" type="submit">Eliminar</button>
+                  </form>
+                </div>
+              </div>
+            </td>
+          </tr>
+        {% empty %}
+          <tr class="bo-empty-row"><td colspan="3">Esta pizza aún no tiene insumos en la receta.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="alert alert-primary d-flex align-items-center p-5">
+  <i class="bi bi-info-circle-fill fs-3 text-primary me-3"></i>
+  <span>Guardá la pizza para poder cargar su receta de insumos.</span>
+</div>
+{% endif %}
 {% endblock %}

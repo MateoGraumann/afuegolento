@@ -1,32 +1,98 @@
 {% extends "base.html" %}
+{% block title %}Ventas | Pizzería BO{% endblock %}
 {% block page_title %}Ventas{% endblock %}
 {% block content %}
-<div class="card mb-3 bo-content-card">
+<div class="d-flex justify-content-end mb-3">
+  <form
+    method="post"
+    action="{% url 'core:sale_close_day' %}"
+    class="bo-form d-flex flex-wrap align-items-end gap-2"
+    data-confirm-message="¿Cerrar el día seleccionado? Se generarán las ventas de pedidos entregados y no se puede deshacer."
+  >
+    {% csrf_token %}
+    <div>
+      <label class="form-label mb-1" for="id_business_date">Cerrar día</label>
+      <input
+        class="form-control"
+        type="date"
+        id="id_business_date"
+        name="business_date"
+        value="{{ business_date }}"
+        required
+        style="min-width: 170px;"
+      >
+    </div>
+    <button class="btn btn-light-primary" type="submit" style="min-height: 42px;">
+      <i class="bi bi-check2-circle"></i>&nbsp;Cerrar día
+    </button>
+  </form>
+</div>
+
+<div class="card mb-5 bo-content-card">
+  <div class="card-header border-0 pt-5 pb-0">
+    <div>
+      <div class="bo-filter-title">Histórico de ventas</div>
+      <p class="bo-filter-help">Filtrá por rango de fechas para consultar ventas registradas.</p>
+    </div>
+  </div>
   <div class="card-body">
-    <form method="get" class="row g-3 align-items-end bo-form">
-      <div class="col-md-4">
-        <label class="form-label text-dark">Fecha operativa</label>
-        <input class="form-control" type="date" name="business_date" value="{{ business_date }}">
+    <form method="get" class="bo-form">
+      <div class="row g-3 align-items-end">
+        <div class="col-md-4">
+          <label class="form-label" for="id_start_date">Desde</label>
+          <input
+            class="form-control"
+            type="date"
+            id="id_start_date"
+            name="start_date"
+            value="{{ start_date }}"
+          >
+        </div>
+        <div class="col-md-4">
+          <label class="form-label" for="id_end_date">Hasta</label>
+          <input
+            class="form-control"
+            type="date"
+            id="id_end_date"
+            name="end_date"
+            value="{{ end_date }}"
+          >
+        </div>
+        <div class="col-md-4">
+          <button class="btn btn-primary w-100" type="submit">Filtrar</button>
+        </div>
       </div>
-      <div class="col-md-4">
-        <button class="btn btn-primary" type="submit">Filtrar</button>
+      <div class="d-flex flex-wrap gap-2 mt-4 bo-date-preset">
+        <a
+          class="btn btn-sm btn-light-primary"
+          href="?start_date={{ today|date:'Y-m-d' }}&end_date={{ today|date:'Y-m-d' }}&business_date={{ business_date }}"
+        >Hoy</a>
+        <a
+          class="btn btn-sm btn-light-primary"
+          href="?start_date={{ preset_week_start|date:'Y-m-d' }}&end_date={{ today|date:'Y-m-d' }}&business_date={{ business_date }}"
+        >Últimos 7 días</a>
+        <a
+          class="btn btn-sm btn-light-primary"
+          href="?start_date={{ preset_month_start|date:'Y-m-d' }}&end_date={{ today|date:'Y-m-d' }}&business_date={{ business_date }}"
+        >Este mes</a>
       </div>
-    </form>
-    <form method="post" action="/sales/close-day/" class="mt-3" data-confirm-message="¿Generar ventas del día seleccionado?">
-      {% csrf_token %}
-      <input type="hidden" name="business_date" value="{{ business_date }}">
-      <button class="btn btn-light-primary" type="submit">Cerrar día</button>
     </form>
   </div>
 </div>
 
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h2 class="bo-section-title">Resultados</h2>
+  <span class="badge badge-light-primary bo-period-badge">{{ start_date }} → {{ end_date }}</span>
+</div>
+
 <div class="card bo-content-card">
   <div class="table-responsive">
-    <table class="table table-row-dashed align-middle gs-0 gy-3 bo-table">
+    <table class="table table-row-dashed align-middle gs-0 gy-3 bo-table mb-0">
       <thead>
         <tr>
           <th>ID</th>
           <th>Fecha operativa</th>
+          <th>Cliente</th>
           <th>Notas</th>
           <th>Ingresos</th>
           <th>Costos</th>
@@ -38,13 +104,20 @@
         <tr>
           <td>#{{ sale.id }}</td>
           <td>{{ sale.business_date }}</td>
+          <td>
+            {% if sale.customer %}
+              {{ sale.customer.first_name }} {{ sale.customer.last_name }}
+            {% else %}
+              -
+            {% endif %}
+          </td>
           <td>{{ sale.notes|default:"-" }}</td>
           <td>{{ sale.total_revenue }}</td>
           <td>{{ sale.total_cost }}</td>
           <td>{{ sale.total_profit }}</td>
         </tr>
       {% empty %}
-        <tr class="bo-empty-row"><td colspan="6">No hay ventas para la fecha seleccionada.</td></tr>
+        <tr class="bo-empty-row"><td colspan="7">No hay ventas para el rango seleccionado.</td></tr>
       {% endfor %}
       </tbody>
     </table>

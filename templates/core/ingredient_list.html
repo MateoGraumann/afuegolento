@@ -15,9 +15,9 @@
         <tr>
           <th>Nombre</th>
           <th>Unidad</th>
+          <th>Cantidad</th>
+          <th>Precio total</th>
           <th>Precio unitario</th>
-          <th>Stock</th>
-          <th>Stock mínimo</th>
           <th>Acciones</th>
         </tr>
       </thead>
@@ -25,10 +25,10 @@
       {% for ingredient in ingredients %}
         <tr>
           <td>{{ ingredient.name }}</td>
-          <td>{{ ingredient.unit }}</td>
+          <td>{{ ingredient.get_unit_display }}</td>
+          <td>{{ ingredient.quantity }}</td>
+          <td>{{ ingredient.total_price }}</td>
           <td>{{ ingredient.unit_price }}</td>
-          <td>{{ ingredient.current_stock }}</td>
-          <td>{{ ingredient.min_stock }}</td>
           <td>
             <div class="dropdown">
               <button class="btn btn-sm btn-light-primary dropdown-toggle" data-bs-toggle="dropdown" type="button">
@@ -36,7 +36,6 @@
               </button>
               <div class="dropdown-menu">
                 <a class="dropdown-item" href="/ingredients/{{ ingredient.id }}/edit/">Editar</a>
-                <a class="dropdown-item" href="/ingredients/{{ ingredient.id }}/adjust-stock/">Ajustar</a>
                 <form method="post" action="/ingredients/{{ ingredient.id }}/delete/" data-confirm-message="¿Eliminar insumo?">
                   {% csrf_token %}
                   <button class="dropdown-item text-danger" type="submit">Eliminar</button>

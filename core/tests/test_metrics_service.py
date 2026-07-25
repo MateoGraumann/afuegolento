@@ -3,8 +3,6 @@ from django.test import TestCase
 
 from core.models import Customer, Ingredient, Pizza, RecipeItem
 from core.services.metrics import (
-    get_ingredient_consumption,
-    get_low_and_negative_stock,
     get_profit_summary,
     get_top_pizzas_by_quantity,
     get_top_pizzas_by_revenue,
@@ -13,22 +11,19 @@ from core.services.metrics import (
 from core.services.sales import create_sale
 
 
+def _ingredient(name, unit, unit_price):
+    return Ingredient.objects.create(
+        name=name,
+        unit=unit,
+        quantity=Decimal("1"),
+        total_price=Decimal(unit_price),
+    )
+
+
 class MetricsServiceTests(TestCase):
     def setUp(self):
-        self.cheese = Ingredient.objects.create(
-            name="Cheese",
-            unit=Ingredient.Unit.GRAM,
-            unit_price=Decimal("2"),
-            current_stock=Decimal("2000"),
-            min_stock=Decimal("300"),
-        )
-        self.sauce = Ingredient.objects.create(
-            name="Sauce",
-            unit=Ingredient.Unit.GRAM,
-            unit_price=Decimal("1"),
-            current_stock=Decimal("1500"),
-            min_stock=Decimal("250"),
-        )
+        self.cheese = _ingredient("Cheese", Ingredient.Unit.GRAM, "2")
+        self.sauce = _ingredient("Sauce", Ingredient.Unit.GRAM, "1")
         self.mozza = Pizza.objects.create(name="Mozzarella", sale_price=Decimal("1000"))
         self.fugazza = Pizza.objects.create(name="Fugazza", sale_price=Decimal("1200"))
         self.customer = Customer.objects.create(first_name="Paula", last_name="Ruiz", phone="11995544")
@@ -75,20 +70,6 @@ class MetricsServiceTests(TestCase):
         top_rev = get_top_pizzas_by_revenue("2026-03-25", "2026-03-25")
         self.assertEqual(top_qty[0]["pizza__name"], "Mozzarella")
         self.assertEqual(top_rev[0]["pizza__name"], "Mozzarella")
-
-    def test_consumption_and_low_stock_alerts(self):
-        create_sale(
-            business_date="2026-03-25",
-            notes="Service",
-            items=[{"pizza_id": self.mozza.id, "quantity": 8}],
-            customer_id=self.customer.id,
-        )
-        consumption = get_ingredient_consumption("2026-03-25", "2026-03-25")
-        self.assertTrue(any(row["ingredient__name"] == "Cheese" for row in consumption))
-
-        alerts = get_low_and_negative_stock()
-        self.assertIn("low_stock", alerts)
-        self.assertIn("negative_stock", alerts)
 
     def test_unit_margin_by_pizza(self):
         create_sale(

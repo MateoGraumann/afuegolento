@@ -1,17 +1,38 @@
 {% extends "base.html" %}
-{% block title %}{% if recipe %}Editar receta{% else %}Nueva receta{% endif %} | Pizzería BO{% endblock %}
+{% block title %}{% if recipe %}Editar insumo de receta{% else %}Agregar insumo{% endif %} | Pizzería BO{% endblock %}
 {% block page_back %}
-<a class="btn btn-icon btn-light-primary bo-back-btn" href="/recipes/" title="Volver">
+<a class="btn btn-icon btn-light-primary bo-back-btn" href="{% if pizza %}{% url 'core:pizza_update' pizza.id %}{% else %}/pizzas/{% endif %}" title="Volver">
   <i class="bi bi-arrow-left"></i>
 </a>
 {% endblock %}
-{% block page_title %}{% if recipe %}Editar receta{% else %}Nueva receta{% endif %}{% endblock %}
+{% block page_title %}{% if recipe %}Editar insumo{% else %}Agregar insumo{% endif %}{% endblock %}
 {% block content %}
 <div class="card bo-content-card">
   <div class="card-body">
+    {% if pizza %}
+      <div class="mb-4">
+        <label class="form-label text-dark">Pizza</label>
+        <input class="form-control" type="text" value="{{ pizza.name }}" readonly disabled>
+      </div>
+    {% endif %}
     <form method="post" class="bo-form">
       {% csrf_token %}
-      {{ form.as_p }}
+      {% if form.non_field_errors %}
+        <div class="alert alert-danger mb-4">
+          {% for error in form.non_field_errors %}
+            <div>{{ error }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+      {% for field in form %}
+        <div class="mb-4">
+          {{ field.label_tag }}
+          {{ field }}
+          {% if field.errors %}
+            <div class="text-danger small mt-1">{{ field.errors|join:", " }}</div>
+          {% endif %}
+        </div>
+      {% endfor %}
       <button class="btn btn-primary" type="submit">Guardar</button>
     </form>
   </div>

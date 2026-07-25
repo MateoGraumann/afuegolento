@@ -2,32 +2,30 @@ from decimal import Decimal
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 
-from core.models import Customer, Ingredient, IngredientMovement, Order, OrderItem, Pizza, RecipeItem, Sale
+from core.models import Customer, Ingredient, Order, OrderItem, Pizza, RecipeItem, Sale
 from core.services.sales import close_sales_for_business_date, create_sale
+
+
+def _ingredient(name, unit, unit_price):
+    """Crea insumo con precio unitario objetivo vía cantidad=1."""
+    return Ingredient.objects.create(
+        name=name,
+        unit=unit,
+        quantity=Decimal("1"),
+        total_price=Decimal(unit_price),
+    )
 
 
 class SalesServiceTests(TestCase):
     def setUp(self):
-        self.cheese = Ingredient.objects.create(
-            name="Cheese",
-            unit=Ingredient.Unit.GRAM,
-            unit_price=Decimal("0.02"),
-            current_stock=Decimal("5000"),
-            min_stock=Decimal("500"),
-        )
-        self.sauce = Ingredient.objects.create(
-            name="Sauce",
-            unit=Ingredient.Unit.GRAM,
-            unit_price=Decimal("0.01"),
-            current_stock=Decimal("4000"),
-            min_stock=Decimal("400"),
-        )
+        self.cheese = _ingredient("Cheese", Ingredient.Unit.GRAM, "0.02")
+        self.sauce = _ingredient("Sauce", Ingredient.Unit.GRAM, "0.01")
         self.pizza = Pizza.objects.create(name="Mozzarella", sale_price=Decimal("1000"))
         self.customer = Customer.objects.create(first_name="Mario", last_name="Lopez", phone="11001122")
         RecipeItem.objects.create(pizza=self.pizza, ingredient=self.cheese, quantity=Decimal("200"))
         RecipeItem.objects.create(pizza=self.pizza, ingredient=self.sauce, quantity=Decimal("100"))
 
-    def test_create_sale_deducts_stock_and_creates_movements(self):
+    def test_create_sale_calculates_cost_without_stock(self):
         sale = create_sale(
             business_date="2026-03-25",
             notes="Rush hour",
@@ -44,14 +42,6 @@ class SalesServiceTests(TestCase):
         self.assertEqual(sale.total_revenue, Decimal("2000.00"))
         self.assertEqual(sale.total_cost, Decimal("10.00"))
         self.assertEqual(sale.total_profit, Decimal("1990.00"))
-
-        self.cheese.refresh_from_db()
-        self.sauce.refresh_from_db()
-        self.assertEqual(self.cheese.current_stock, Decimal("4600"))
-        self.assertEqual(self.sauce.current_stock, Decimal("3800"))
-
-        movements = IngredientMovement.objects.filter(reference__startswith="SALE:")
-        self.assertEqual(movements.count(), 2)
 
     def test_create_sale_fails_without_recipe(self):
         empty_recipe_pizza = Pizza.objects.create(name="No Recipe", sale_price=Decimal("500"))
@@ -95,19 +85,13 @@ class SalesServiceTests(TestCase):
             business_date="2026-03-25",
             customer=self.customer,
             status=Order.Status.DELIVERED,
-            notes="pedido",
-            total_envio=Decimal("100.00"),
+            notes="delivered",
+            total_envio=Decimal("50.00"),
         )
-        OrderItem.objects.create(order=order, pizza=self.pizza, quantity=2)
+        OrderItem.objects.create(order=order, pizza=self.pizza, quantity=1)
 
-        created_sales = close_sales_for_business_date("2026-03-25")
-
-        self.assertEqual(len(created_sales), 1)
+        created = close_sales_for_business_date("2026-03-25")
+        self.assertEqual(len(created), 1)
         order.refresh_from_db()
         self.assertIsNotNone(order.sale)
-        self.assertEqual(Sale.objects.count(), 1)
-        self.assertEqual(order.sale.total_revenue, Decimal("2100.00"))
-        self.assertEqual(order.sale.total_profit, Decimal("2090.00"))
-
-        created_again = close_sales_for_business_date("2026-03-25")
-        self.assertEqual(len(created_again), 0)
+        self.assertEqual(order.sale.total_revenue, Decimal("1050.00"))

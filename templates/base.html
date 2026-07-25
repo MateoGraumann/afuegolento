@@ -8,77 +8,179 @@
   <link href="https://preview.keenthemes.com/metronic8/demo1/assets/css/style.bundle.css" rel="stylesheet" type="text/css">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
   <style>
+    :root {
+      --bo-font: Inter, Helvetica, "Segoe UI", Arial, sans-serif;
+      --bo-text: #1e293b;
+      --bo-text-muted: #64748b;
+      --bo-text-strong: #0f172a;
+      --bo-title-size: 1.05rem;
+      --bo-body-size: 0.95rem;
+      --bo-label-size: 0.875rem;
+      --bo-help-size: 0.875rem;
+      --bo-kpi-label-size: 0.75rem;
+      --bo-kpi-value-size: 1.75rem;
+    }
+
+    body,
+    .form-control,
+    .form-select,
+    .btn,
+    .menu-title,
+    .card-title,
+    .table,
+    .list-group-item,
+    .badge,
+    .alert,
+    .modal {
+      font-family: var(--bo-font) !important;
+    }
+
+    body {
+      color: var(--bo-text);
+      font-size: var(--bo-body-size);
+    }
+
+    .bo-page-title {
+      color: var(--bo-text-strong) !important;
+      font-size: 1.35rem !important;
+      font-weight: 700 !important;
+      letter-spacing: -0.01em;
+      line-height: 1.3;
+      margin: 0 !important;
+    }
+
+    .bo-section-title,
+    .bo-content-card .card-title,
+    .card .card-title {
+      color: var(--bo-text-strong) !important;
+      font-size: var(--bo-title-size) !important;
+      font-weight: 700 !important;
+      letter-spacing: -0.01em;
+      line-height: 1.35;
+      margin-bottom: 0;
+    }
+
+    .bo-filter-title {
+      color: var(--bo-text-strong);
+      font-size: var(--bo-title-size);
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      margin-bottom: 0.2rem;
+    }
+
+    .bo-filter-help,
+    .bo-help-text {
+      color: var(--bo-text-muted);
+      font-size: var(--bo-help-size);
+      font-weight: 500;
+      line-height: 1.45;
+      margin-bottom: 0;
+    }
+
     .bo-content-card {
       border: 1px solid #edf2f7;
       box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
       border-radius: 0.75rem;
     }
+
     .bo-table thead th {
       background: #f8fafc;
-      color: #0f172a;
+      color: var(--bo-text-strong);
+      font-size: 0.8rem;
       font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
       border-bottom: 1px solid #e2e8f0;
     }
+
     .bo-table tbody td {
-      color: #334155;
+      color: var(--bo-text);
+      font-size: var(--bo-body-size);
       font-weight: 500;
       border-bottom: 1px solid #f1f5f9;
     }
+
     .bo-table tbody tr:hover td {
       background: #f8fbff;
     }
+
     .bo-table {
       margin-bottom: 0;
     }
+
     .bo-content-card .table-responsive {
       padding-left: 0;
       padding-right: 0;
     }
+
     .bo-content-card .table-responsive.bo-table-responsive {
       overflow: visible;
     }
+
     .bo-table thead th,
     .bo-table tbody td {
       padding-left: 0.9rem !important;
       padding-right: 0.9rem !important;
     }
+
     .bo-table thead th:first-child,
     .bo-table tbody td:first-child {
       padding-left: 1.25rem !important;
     }
+
     .bo-table thead th:last-child,
     .bo-table tbody td:last-child {
       padding-right: 1.25rem !important;
       width: 150px;
     }
+
     .bo-kpi-title {
-      color: #475569;
+      color: var(--bo-text-muted);
       font-weight: 700;
       text-transform: uppercase;
-      font-size: 0.75rem;
+      font-size: var(--bo-kpi-label-size);
       letter-spacing: 0.08em;
+      margin-bottom: 0.35rem;
     }
+
     .bo-kpi-value {
-      color: #1e293b;
-      font-weight: 800;
+      color: var(--bo-text-strong);
+      font-size: var(--bo-kpi-value-size);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
     }
+
     .bo-form label,
     .bo-form .form-label,
     .bo-form p,
     .bo-form .text-secondary,
     .bo-form .form-check-label {
-      color: #1f2937 !important;
+      color: var(--bo-text-strong) !important;
+      font-size: var(--bo-label-size) !important;
+      font-weight: 600 !important;
     }
+
     .bo-form input,
     .bo-form select,
     .bo-form textarea {
-      color: #111827 !important;
+      color: var(--bo-text-strong) !important;
       background-color: #fff !important;
+      font-size: var(--bo-body-size) !important;
+      font-weight: 500 !important;
     }
+
+    .list-group-item {
+      color: var(--bo-text);
+      font-size: var(--bo-body-size);
+      font-weight: 500;
+    }
+
     .menu-link.active {
       background: rgba(59, 130, 246, 0.2);
       border-radius: 0.6rem;
     }
+
     .bo-back-btn {
       width: 32px !important;
       height: 32px !important;
@@ -89,21 +191,37 @@
       align-items: center;
       justify-content: center;
     }
+
     .bo-back-btn i {
       font-size: 0.95rem !important;
     }
+
     .bo-empty-row td {
       text-align: center !important;
-      color: #475569 !important;
+      color: var(--bo-text-muted) !important;
       font-weight: 600 !important;
       background: #f8fafc !important;
       padding-top: 1.1rem !important;
       padding-bottom: 1.1rem !important;
+      text-transform: none !important;
+      letter-spacing: normal !important;
+      font-size: var(--bo-body-size) !important;
     }
+
     .bo-required-dot {
       color: #dc3545;
       font-weight: 700;
       margin-left: 0.2rem;
+    }
+
+    .bo-date-preset .btn {
+      border-radius: 999px;
+      font-weight: 600;
+    }
+
+    .bo-period-badge {
+      font-size: 0.8rem;
+      font-weight: 600;
     }
   </style>
 </head>
@@ -130,15 +248,15 @@
                 <span class="menu-section text-muted text-uppercase fs-8 ls-1">Operaciones</span>
               </div>
               <div class="menu-item">
-                <a class="menu-link {% if '/sales/' in request.path %}active{% endif %}" href="/sales/">
-                  <span class="menu-icon"><i class="bi bi-lightning-charge fs-3"></i></span>
-                  <span class="menu-title">Ventas</span>
-                </a>
-              </div>
-              <div class="menu-item">
                 <a class="menu-link {% if '/orders/' in request.path %}active{% endif %}" href="/orders/">
                   <span class="menu-icon"><i class="bi bi-receipt fs-3"></i></span>
                   <span class="menu-title">Pedidos</span>
+                </a>
+              </div>
+              <div class="menu-item">
+                <a class="menu-link {% if '/sales/' in request.path %}active{% endif %}" href="/sales/">
+                  <span class="menu-icon"><i class="bi bi-graph-up-arrow fs-3"></i></span>
+                  <span class="menu-title">Ventas</span>
                 </a>
               </div>
               <div class="menu-content pt-4 pb-2">
@@ -163,9 +281,9 @@
                 </a>
               </div>
               <div class="menu-item">
-                <a class="menu-link {% if '/recipes/' in request.path %}active{% endif %}" href="/recipes/">
-                  <span class="menu-icon"><i class="bi bi-journal-text fs-3"></i></span>
-                  <span class="menu-title">Recetas</span>
+                <a class="menu-link {% if '/pricing/' in request.path %}active{% endif %}" href="/pricing/">
+                  <span class="menu-icon"><i class="bi bi-cash-coin fs-3"></i></span>
+                  <span class="menu-title">Simulador de precios</span>
                 </a>
               </div>
             </div>
@@ -188,12 +306,12 @@
             <div class="container-xxl d-flex flex-stack flex-wrap">
               <div class="d-flex align-items-center gap-3">
                 {% block page_back %}{% endblock %}
-                <h1 class="text-dark fw-bold my-1 fs-3">{% block page_title %}Panel{% endblock %}</h1>
+                <h1 class="bo-page-title">{% block page_title %}Panel{% endblock %}</h1>
               </div>
             </div>
           </div>
           <div class="post d-flex flex-column-fluid">
-            <div class="container-xxl">
+            <div class="container-xxl pb-10 pb-lg-15">
               {% if messages %}
                 {% for message in messages %}
                   <div class="alert alert-primary d-flex align-items-center p-5 mb-8">
@@ -294,5 +412,6 @@
       }
     });
   </script>
+  {% block page_scripts %}{% endblock %}
 </body>
 </html>

@@ -35,27 +35,68 @@
             {% endif %}
           </td>
           <td>{{ order.business_date }}</td>
-          <td>{{ order.get_status_display }}</td>
+          <td>
+            {% if order.status == "PENDING" %}
+              <span class="badge badge-light-warning">{{ order.get_status_display }}</span>
+            {% elif order.status == "IN_PROGRESS" %}
+              <span class="badge badge-light-primary">{{ order.get_status_display }}</span>
+            {% elif order.status == "DELIVERED" %}
+              <span class="badge badge-light-success">{{ order.get_status_display }}</span>
+            {% else %}
+              <span class="badge badge-light-danger">{{ order.get_status_display }}</span>
+            {% endif %}
+            {% if order.sale %}
+              <span class="badge badge-light-success ms-1">Cerrado</span>
+            {% endif %}
+          </td>
           <td>{{ order.total_envio|default:"-" }}</td>
           <td>{{ order.direccion_envio|default:"-" }}</td>
           <td>{{ order.items.count }}</td>
           <td>
-            {% if order.sale %}
-              <span class="badge badge-light-success">Cerrado</span>
-            {% else %}
-              <div class="dropdown">
-                <button class="btn btn-sm btn-light-primary dropdown-toggle" data-bs-toggle="dropdown" type="button">
-                  Acciones
-                </button>
-                <div class="dropdown-menu">
+            <div class="dropdown">
+              <button class="btn btn-sm btn-light-primary dropdown-toggle" data-bs-toggle="dropdown" type="button">
+                Acciones
+              </button>
+              <div class="dropdown-menu">
+                {% if order.status == "PENDING" and not order.sale %}
+                  <form method="post" action="{% url 'core:order_change_status' order.id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="new_status" value="IN_PROGRESS">
+                    <button class="dropdown-item" type="submit">Iniciar preparación</button>
+                  </form>
+                  <form method="post" action="{% url 'core:order_change_status' order.id %}" data-confirm-message="¿Cancelar el pedido #{{ order.id }}? Esta acción no tiene rollback.">
+                    {% csrf_token %}
+                    <input type="hidden" name="new_status" value="CANCELLED">
+                    <button class="dropdown-item text-danger" type="submit">Cancelar pedido</button>
+                  </form>
+                  <div class="dropdown-divider"></div>
                   <a class="dropdown-item" href="/orders/{{ order.id }}/edit/">Editar</a>
                   <form method="post" action="/orders/{{ order.id }}/delete/" data-confirm-message="¿Eliminar pedido?">
                     {% csrf_token %}
                     <button class="dropdown-item text-danger" type="submit">Eliminar</button>
                   </form>
-                </div>
+                {% elif order.status == "IN_PROGRESS" and not order.sale %}
+                  <form method="post" action="{% url 'core:order_change_status' order.id %}" data-confirm-message="¿Marcar el pedido #{{ order.id }} como entregado? Esta acción no tiene rollback.">
+                    {% csrf_token %}
+                    <input type="hidden" name="new_status" value="DELIVERED">
+                    <button class="dropdown-item" type="submit">Marcar entregado</button>
+                  </form>
+                  <form method="post" action="{% url 'core:order_change_status' order.id %}" data-confirm-message="¿Cancelar el pedido #{{ order.id }}? Esta acción no tiene rollback.">
+                    {% csrf_token %}
+                    <input type="hidden" name="new_status" value="CANCELLED">
+                    <button class="dropdown-item text-danger" type="submit">Cancelar pedido</button>
+                  </form>
+                  <div class="dropdown-divider"></div>
+                  <a class="dropdown-item" href="/orders/{{ order.id }}/edit/">Editar</a>
+                  <form method="post" action="/orders/{{ order.id }}/delete/" data-confirm-message="¿Eliminar pedido?">
+                    {% csrf_token %}
+                    <button class="dropdown-item text-danger" type="submit">Eliminar</button>
+                  </form>
+                {% else %}
+                  <span class="dropdown-item-text text-muted">Sin acciones disponibles</span>
+                {% endif %}
               </div>
-            {% endif %}
+            </div>
           </td>
         </tr>
       {% empty %}

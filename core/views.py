@@ -1,3 +1,6 @@
+import json
+from datetime import timedelta
+
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -10,21 +13,26 @@ from django.views.generic import ListView
 
 from core.forms import (
     CustomerForm,
-    IngredientAdjustStockForm,
     IngredientForm,
     OrderForm,
     OrderItemForm,
     PizzaForm,
     RecipeItemForm,
 )
-from core.models import Customer, Ingredient, IngredientMovement, Order, OrderItem, Pizza, RecipeItem, Sale
+from core.models import Customer, Ingredient, Order, OrderItem, Pizza, RecipeItem, Sale
 from core.services.metrics import (
-    get_ingredient_consumption,
-    get_low_and_negative_stock,
     get_profit_summary,
     get_top_pizzas_by_quantity,
     get_top_pizzas_by_revenue,
     get_unit_margin_by_pizza,
+)
+from core.services.orders import change_order_status
+from core.services.pricing import (
+    DEFAULT_MARGIN_PCT,
+    DEFAULT_OVERHEAD_FIXED,
+    SimulationParams,
+    build_simulator_payload,
+    simulate_pricing,
 )
 from core.services.sales import close_sales_for_business_date
 
@@ -37,33 +45,42 @@ class DashboardView(View):
         start_date = request.GET.get("start_date") or str(today)
         end_date = request.GET.get("end_date") or str(today)
         context = {
+            "today": today,
             "start_date": start_date,
             "end_date": end_date,
-            "summary_today": get_profit_summary(today, today),
+            "preset_week_start": today - timedelta(days=6),
+            "preset_month_start": today.replace(day=1),
             "summary": get_profit_summary(start_date, end_date),
             "top_by_quantity": get_top_pizzas_by_quantity(start_date, end_date),
             "top_by_revenue": get_top_pizzas_by_revenue(start_date, end_date),
             "unit_margin": get_unit_margin_by_pizza(start_date, end_date),
-            "consumption": get_ingredient_consumption(start_date, end_date),
-            "stock_alerts": get_low_and_negative_stock(),
-            "recent_sales": Sale.objects.select_related("customer").order_by("-business_date", "-created_at")[:5],
         }
         return render(request, self.template_name, context)
 
 
-class SaleListView(ListView):
-    model = Sale
+class SaleListView(View):
     template_name = "core/sale_list.html"
-    context_object_name = "sales"
 
-    def get_queryset(self):
-        selected_date = self.request.GET.get("business_date") or str(timezone.localdate())
-        return Sale.objects.filter(business_date=selected_date).order_by("-created_at")
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["business_date"] = self.request.GET.get("business_date") or str(timezone.localdate())
-        return context
+    def get(self, request):
+        today = timezone.localdate()
+        start_date = request.GET.get("start_date") or str(today)
+        end_date = request.GET.get("end_date") or str(today)
+        business_date = request.GET.get("business_date") or str(today)
+        sales = (
+            Sale.objects.filter(business_date__gte=start_date, business_date__lte=end_date)
+            .select_related("customer")
+            .order_by("-business_date", "-created_at")
+        )
+        context = {
+            "today": today,
+            "start_date": start_date,
+            "end_date": end_date,
+            "business_date": business_date,
+            "preset_week_start": today - timedelta(days=6),
+            "preset_month_start": today.replace(day=1),
+            "sales": sales,
+        }
+        return render(request, self.template_name, context)
 
 
 class SaleCloseDayView(View):
@@ -76,8 +93,30 @@ class SaleCloseDayView(View):
             else:
                 messages.info(request, "No hay pedidos entregados pendientes para esa fecha.")
         except ValidationError as exc:
-            messages.error(request, exc.message)
-        return redirect(f"{reverse('core:sale_list')}?business_date={business_date}")
+            messages.error(request, "; ".join(exc.messages))
+        return redirect(
+            f"{reverse('core:sale_list')}?business_date={business_date}"
+            f"&start_date={business_date}&end_date={business_date}"
+        )
+
+class PricingListView(View):
+    template_name = "core/pricing_list.html"
+
+    def get(self, request):
+        overhead_raw = request.GET.get("overhead_fixed")
+        if overhead_raw is None:
+            overhead_raw = request.GET.get("overhead_pct", str(DEFAULT_OVERHEAD_FIXED))
+        margin_raw = request.GET.get("margin_pct", str(DEFAULT_MARGIN_PCT))
+        params = SimulationParams(overhead_fixed=overhead_raw, margin_pct=margin_raw)
+        result = simulate_pricing(params)
+        payload = build_simulator_payload(params)
+        context = {
+            "overhead_fixed": result["overhead_fixed"],
+            "margin_pct": result["margin_pct"],
+            "rows": result["rows"],
+            "simulator_payload_json": json.dumps(payload),
+        }
+        return render(request, self.template_name, context)
 
 
 class CustomerListView(ListView):
@@ -136,7 +175,7 @@ class OrderListView(ListView):
     context_object_name = "orders"
 
     def get_queryset(self):
-        return Order.objects.select_related("customer").prefetch_related("items__pizza").order_by(
+        return Order.objects.select_related("customer", "sale").prefetch_related("items__pizza").order_by(
             "-business_date", "-created_at"
         )
 
@@ -181,6 +220,7 @@ class OrderCreateView(View):
                     phone=(form.cleaned_data.get("customer_phone") or "").strip(),
                 )
                 form.instance.customer = customer
+            form.instance.status = Order.Status.PENDING
             order = form.save()
             item_formset.instance = order
             item_formset.save()
@@ -211,8 +251,8 @@ class OrderUpdateView(View):
 
     def get(self, request, pk):
         order = get_object_or_404(Order.objects.select_related("customer").prefetch_related("items__pizza"), pk=pk)
-        if order.sale_id:
-            messages.warning(request, "El pedido ya fue cerrado y no puede editarse.")
+        if order.sale_id or order.status in {Order.Status.DELIVERED, Order.Status.CANCELLED}:
+            messages.warning(request, "El pedido no puede editarse en su estado actual.")
             return redirect("core:order_list")
         form = OrderForm(instance=order)
         item_formset = self._build_formset(instance=order)
@@ -226,8 +266,8 @@ class OrderUpdateView(View):
 
     def post(self, request, pk):
         order = get_object_or_404(Order.objects.select_related("customer").prefetch_related("items__pizza"), pk=pk)
-        if order.sale_id:
-            messages.warning(request, "El pedido ya fue cerrado y no puede editarse.")
+        if order.sale_id or order.status in {Order.Status.DELIVERED, Order.Status.CANCELLED}:
+            messages.warning(request, "El pedido no puede editarse en su estado actual.")
             return redirect("core:order_list")
         form = OrderForm(request.POST, instance=order)
         item_formset = self._build_formset(data=request.POST, instance=order)
@@ -257,6 +297,7 @@ class OrderUpdateView(View):
                     phone=(form.cleaned_data.get("customer_phone") or "").strip(),
                 )
                 form.instance.customer = customer
+            form.instance.status = order.status
             form.save()
             item_formset.save()
         messages.success(request, "Pedido actualizado.")
@@ -281,11 +322,23 @@ class OrderUpdateView(View):
         return False
 
 
+class OrderChangeStatusView(View):
+    def post(self, request, pk):
+        order = get_object_or_404(Order, pk=pk)
+        new_status = request.POST.get("new_status")
+        try:
+            change_order_status(order, new_status)
+            messages.success(request, f"Pedido actualizado a {order.get_status_display()}.")
+        except ValidationError as exc:
+            messages.error(request, "; ".join(exc.messages))
+        return redirect("core:order_list")
+
+
 class OrderDeleteView(View):
     def post(self, request, pk):
         order = get_object_or_404(Order, pk=pk)
-        if order.sale_id:
-            messages.warning(request, "El pedido ya fue cerrado y no puede eliminarse.")
+        if order.sale_id or order.status in {Order.Status.DELIVERED, Order.Status.CANCELLED}:
+            messages.warning(request, "El pedido no puede eliminarse en su estado actual.")
             return redirect("core:order_list")
         order.delete()
         messages.success(request, "Pedido eliminado.")
@@ -320,12 +373,12 @@ class IngredientUpdateView(View):
         return render(
             request,
             self.template_name,
-            {"form": IngredientForm(instance=ingredient, allow_stock_edit=False), "ingredient": ingredient},
+            {"form": IngredientForm(instance=ingredient), "ingredient": ingredient},
         )
 
     def post(self, request, pk):
         ingredient = get_object_or_404(Ingredient, pk=pk)
-        form = IngredientForm(request.POST, instance=ingredient, allow_stock_edit=False)
+        form = IngredientForm(request.POST, instance=ingredient)
         if form.is_valid():
             form.save()
             messages.success(request, "Insumo actualizado.")
@@ -357,8 +410,9 @@ class PizzaCreateView(View):
     def post(self, request):
         form = PizzaForm(request.POST)
         if form.is_valid():
-            form.save()
-            return redirect("core:pizza_list")
+            pizza = form.save()
+            messages.success(request, "Pizza creada. Ahora podés cargar la receta.")
+            return redirect("core:pizza_update", pk=pizza.id)
         return render(request, self.template_name, {"form": form})
 
 
@@ -367,16 +421,26 @@ class PizzaUpdateView(View):
 
     def get(self, request, pk):
         pizza = get_object_or_404(Pizza, pk=pk)
-        return render(request, self.template_name, {"form": PizzaForm(instance=pizza), "pizza": pizza})
+        recipe_items = pizza.recipe_items.select_related("ingredient").order_by("ingredient__name")
+        return render(
+            request,
+            self.template_name,
+            {"form": PizzaForm(instance=pizza), "pizza": pizza, "recipe_items": recipe_items},
+        )
 
     def post(self, request, pk):
         pizza = get_object_or_404(Pizza, pk=pk)
         form = PizzaForm(request.POST, instance=pizza)
+        recipe_items = pizza.recipe_items.select_related("ingredient").order_by("ingredient__name")
         if form.is_valid():
             form.save()
             messages.success(request, "Pizza actualizada.")
-            return redirect("core:pizza_list")
-        return render(request, self.template_name, {"form": form, "pizza": pizza})
+            return redirect("core:pizza_update", pk=pizza.id)
+        return render(
+            request,
+            self.template_name,
+            {"form": form, "pizza": pizza, "recipe_items": recipe_items},
+        )
 
 
 class PizzaDeleteView(View):
@@ -388,85 +452,59 @@ class PizzaDeleteView(View):
         return redirect("core:pizza_list")
 
 
-class IngredientAdjustStockView(View):
-    template_name = "core/ingredient_adjust_stock_form.html"
-
-    def get(self, request, pk):
-        ingredient = get_object_or_404(Ingredient, pk=pk)
-        return render(request, self.template_name, {"ingredient": ingredient, "form": IngredientAdjustStockForm()})
-
-    def post(self, request, pk):
-        ingredient = get_object_or_404(Ingredient, pk=pk)
-        form = IngredientAdjustStockForm(request.POST)
-        if not form.is_valid():
-            return render(request, self.template_name, {"ingredient": ingredient, "form": form})
-
-        direction = form.cleaned_data["direction"]
-        quantity = form.cleaned_data["quantity"]
-        reference = form.cleaned_data["reference"]
-
-        with transaction.atomic():
-            if direction == IngredientMovement.Direction.IN:
-                ingredient.current_stock = ingredient.current_stock + quantity
-            else:
-                ingredient.current_stock = ingredient.current_stock - quantity
-            ingredient.save(update_fields=["current_stock", "updated_at"])
-            movement = IngredientMovement(
-                ingredient=ingredient,
-                movement_type=IngredientMovement.MovementType.MANUAL_ADJUSTMENT,
-                direction=direction,
-                quantity=quantity,
-                reference=reference,
-            )
-            movement.full_clean()
-            movement.save()
-        return redirect("core:ingredient_list")
-
-
-class RecipeItemListView(ListView):
-    model = RecipeItem
-    template_name = "core/recipe_list.html"
-    context_object_name = "recipes"
-
-    def get_queryset(self):
-        return RecipeItem.objects.select_related("pizza", "ingredient").order_by("pizza__name", "ingredient__name")
+class RecipeItemListView(View):
+    def get(self, request):
+        return redirect("core:pizza_list")
 
 
 class RecipeItemCreateView(View):
     template_name = "core/recipe_form.html"
 
-    def get(self, request):
-        return render(request, self.template_name, {"form": RecipeItemForm()})
+    def get(self, request, pizza_id):
+        pizza = get_object_or_404(Pizza, pk=pizza_id)
+        form = RecipeItemForm(fixed_pizza=pizza)
+        return render(request, self.template_name, {"form": form, "pizza": pizza})
 
-    def post(self, request):
-        form = RecipeItemForm(request.POST)
+    def post(self, request, pizza_id):
+        pizza = get_object_or_404(Pizza, pk=pizza_id)
+        form = RecipeItemForm(request.POST, fixed_pizza=pizza)
         if form.is_valid():
             form.save()
-            messages.success(request, "Receta creada.")
-            return redirect("core:recipe_list")
-        return render(request, self.template_name, {"form": form})
+            messages.success(request, "Insumo agregado a la receta.")
+            return redirect("core:pizza_update", pk=pizza.id)
+        return render(request, self.template_name, {"form": form, "pizza": pizza})
 
 
 class RecipeItemUpdateView(View):
     template_name = "core/recipe_form.html"
 
     def get(self, request, pk):
-        recipe = get_object_or_404(RecipeItem, pk=pk)
-        return render(request, self.template_name, {"form": RecipeItemForm(instance=recipe), "recipe": recipe})
+        recipe = get_object_or_404(RecipeItem.objects.select_related("pizza", "ingredient"), pk=pk)
+        form = RecipeItemForm(instance=recipe, fixed_pizza=recipe.pizza)
+        return render(
+            request,
+            self.template_name,
+            {"form": form, "recipe": recipe, "pizza": recipe.pizza},
+        )
 
     def post(self, request, pk):
-        recipe = get_object_or_404(RecipeItem, pk=pk)
-        form = RecipeItemForm(request.POST, instance=recipe)
+        recipe = get_object_or_404(RecipeItem.objects.select_related("pizza", "ingredient"), pk=pk)
+        form = RecipeItemForm(request.POST, instance=recipe, fixed_pizza=recipe.pizza)
         if form.is_valid():
             form.save()
-            messages.success(request, "Receta actualizada.")
-            return redirect("core:recipe_list")
-        return render(request, self.template_name, {"form": form, "recipe": recipe})
+            messages.success(request, "Insumo de receta actualizado.")
+            return redirect("core:pizza_update", pk=recipe.pizza_id)
+        return render(
+            request,
+            self.template_name,
+            {"form": form, "recipe": recipe, "pizza": recipe.pizza},
+        )
 
 
 class RecipeItemDeleteView(View):
     def post(self, request, pk):
         recipe = get_object_or_404(RecipeItem, pk=pk)
+        pizza_id = recipe.pizza_id
         recipe.delete()
-        messages.success(request, "Receta eliminada.")
-        return redirect("core:recipe_list")
+        messages.success(request, "Insumo eliminado de la receta.")
+        return redirect("core:pizza_update", pk=pizza_id)

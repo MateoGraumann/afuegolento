@@ -3,7 +3,7 @@ from decimal import Decimal, InvalidOperation
 from django import forms
 from django.core.exceptions import ValidationError
 
-from core.models import Customer, Ingredient, IngredientMovement, Order, OrderItem, Pizza, RecipeItem
+from core.models import Customer, Ingredient, Order, OrderItem, Pizza, RecipeItem
 
 
 def _apply_styles(form):
@@ -48,20 +48,15 @@ def _parse_decimal_input(raw_value):
 class IngredientForm(forms.ModelForm):
     class Meta:
         model = Ingredient
-        fields = ["name", "unit", "unit_price", "current_stock", "min_stock", "is_active"]
+        fields = ["name", "unit", "quantity", "total_price", "is_active"]
 
     def __init__(self, *args, **kwargs):
-        allow_stock_edit = kwargs.pop("allow_stock_edit", True)
         super().__init__(*args, **kwargs)
-        if not allow_stock_edit:
-            self.fields.pop("current_stock", None)
         _apply_styles(self)
         self.fields["name"].label = "Nombre"
         self.fields["unit"].label = "Unidad"
-        self.fields["unit_price"].label = "Precio unitario"
-        if "current_stock" in self.fields:
-            self.fields["current_stock"].label = "Stock actual"
-        self.fields["min_stock"].label = "Stock mínimo"
+        self.fields["quantity"].label = "Cantidad"
+        self.fields["total_price"].label = "Precio total"
         self.fields["is_active"].label = "Activo"
 
 
@@ -100,7 +95,7 @@ class OrderForm(forms.ModelForm):
 
     class Meta:
         model = Order
-        fields = ["business_date", "customer", "status", "total_envio", "direccion_envio", "notes"]
+        fields = ["business_date", "customer", "total_envio", "direccion_envio", "notes"]
         widgets = {
             "business_date": forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
             "notes": forms.Textarea(attrs={"rows": 2}),
@@ -115,7 +110,6 @@ class OrderForm(forms.ModelForm):
         self.fields["customer_first_name"].label = "Nombre del cliente"
         self.fields["customer_last_name"].label = "Apellido del cliente"
         self.fields["customer_phone"].label = "Teléfono del cliente"
-        self.fields["status"].label = "Estado"
         self.fields["total_envio"].label = "Total envío"
         self.fields["direccion_envio"].label = "Dirección envío"
         self.fields["notes"].label = "Notas"
@@ -159,25 +153,6 @@ class OrderItemForm(forms.ModelForm):
         self.fields["pizza"].queryset = Pizza._default_manager.filter(is_active=True).order_by("name")
 
 
-class IngredientAdjustStockForm(forms.Form):
-    direction = forms.ChoiceField(choices=IngredientMovement.Direction.choices)
-    quantity = forms.DecimalField(min_value=Decimal("0.001"), max_digits=12, decimal_places=3)
-    reference = forms.CharField(max_length=120)
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        _apply_styles(self)
-        self.fields["direction"].label = "Dirección"
-        self.fields["quantity"].label = "Cantidad"
-        self.fields["reference"].label = "Referencia"
-
-    def clean_reference(self):
-        value = self.cleaned_data["reference"]
-        if not value.strip():
-            raise ValidationError("La referencia es obligatoria.")
-        return value
-
-
 class RecipeItemForm(forms.ModelForm):
     quantity = forms.CharField()
 
@@ -186,13 +161,18 @@ class RecipeItemForm(forms.ModelForm):
         fields = ["pizza", "ingredient", "quantity"]
 
     def __init__(self, *args, **kwargs):
+        self.fixed_pizza = kwargs.pop("fixed_pizza", None)
         super().__init__(*args, **kwargs)
         _apply_styles(self)
-        self.fields["pizza"].queryset = Pizza._default_manager.filter(is_active=True).order_by("name")
         self.fields["ingredient"].queryset = Ingredient._default_manager.filter(is_active=True).order_by("name")
-        self.fields["pizza"].label = "Pizza"
         self.fields["ingredient"].label = "Insumo"
         self.fields["quantity"].label = "Cantidad por pizza"
+
+        if self.fixed_pizza is not None:
+            self.fields.pop("pizza", None)
+        else:
+            self.fields["pizza"].queryset = Pizza._default_manager.filter(is_active=True).order_by("name")
+            self.fields["pizza"].label = "Pizza"
 
     def clean_quantity(self):
         raw_value = self.data.get("quantity", "")
@@ -200,3 +180,11 @@ class RecipeItemForm(forms.ModelForm):
         if parsed <= 0:
             raise ValidationError("La cantidad debe ser mayor que cero.")
         return parsed.quantize(Decimal("0.001"))
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        if self.fixed_pizza is not None:
+            instance.pizza = self.fixed_pizza
+        if commit:
+            instance.save()
+        return instance

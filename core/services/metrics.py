@@ -3,7 +3,7 @@ from decimal import Decimal
 from django.db.models import Avg, F, Sum, Value
 from django.db.models.functions import Coalesce
 
-from core.models import Ingredient, IngredientMovement, SaleItem
+from core.models import SaleItem
 
 
 def get_profit_summary(start_date, end_date):
@@ -70,22 +70,3 @@ def get_unit_margin_by_pizza(start_date, end_date):
         else:
             row["margin_percentage"] = Decimal("0.00")
     return rows
-
-
-def get_ingredient_consumption(start_date, end_date):
-    return list(
-        IngredientMovement.objects.filter(
-            movement_type=IngredientMovement.MovementType.SALE_CONSUMPTION,
-            created_at__date__gte=start_date,
-            created_at__date__lte=end_date,
-        )
-        .values("ingredient__name")
-        .annotate(total_consumed=Coalesce(Sum("quantity"), Value(Decimal("0.000"))))
-        .order_by("-total_consumed")
-    )
-
-
-def get_low_and_negative_stock():
-    low_stock = list(Ingredient.objects.filter(current_stock__lt=F("min_stock")).values("id", "name", "current_stock", "min_stock"))
-    negative_stock = list(Ingredient.objects.filter(current_stock__lt=0).values("id", "name", "current_stock", "min_stock"))
-    return {"low_stock": low_stock, "negative_stock": negative_stock}

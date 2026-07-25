@@ -9,14 +9,19 @@
 {% block content %}
 <div class="card bo-content-card">
   <div class="card-body">
+    <div class="alert alert-primary d-flex align-items-center p-5 mb-4">
+      <i class="bi bi-info-circle-fill fs-3 text-primary me-3"></i>
+      <span>Ingresá la cantidad del envase y el precio total. El precio unitario se calcula automáticamente (precio total ÷ cantidad).</span>
+    </div>
     <form method="post" class="bo-form">
       {% csrf_token %}
+      {{ form.as_p }}
       {% if ingredient %}
-        <div class="alert alert-info mb-4">
-          El stock actual se gestiona solo desde <strong>Ajustar stock</strong>.
+        <div class="mb-4">
+          <label class="form-label text-dark">Precio unitario calculado</label>
+          <input class="form-control" type="text" value="{{ ingredient.unit_price }}" readonly disabled>
         </div>
       {% endif %}
-      {{ form.as_p }}
       <button class="btn btn-primary" type="submit">Guardar</button>
     </form>
   </div>
